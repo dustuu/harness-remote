@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { filterModelGroups, groupModels, modelOptionKey } from './components/model-picker.tsx'
+import { filterModelGroups, groupModels, modelOptionKey, visibleModelGroups } from './components/model-picker.tsx'
 
 // The catalog owns variant ordering. These labels are intentionally non-alphabetical and are
 // treated as opaque values: the UI must preserve the order supplied by the harness rather than
@@ -117,5 +117,20 @@ assert.deepEqual(
   ['gpt-5.6'],
   'free-only filtering must use catalog-confirmed free metadata'
 )
+
+// ACP `isDefault` only marks the harness's current model (derived from `currentValue`); it does
+// not prove the `default` alias resolves to that model. After an explicit choice the alias must
+// still be listed so the user can return to the harness default.
+const acpCatalog = (currentModelID) => [
+  { providerID: 'claude', providerName: 'Claude', modelID: 'default', modelName: 'Default (recommended)', isDefault: currentModelID === 'default' },
+  { providerID: 'claude', providerName: 'Claude', modelID: 'opus', modelName: 'Opus', isDefault: currentModelID === 'opus' },
+  { providerID: 'claude', providerName: 'Claude', modelID: 'claude-fable-5-1', modelName: 'Fable', isDefault: currentModelID === 'claude-fable-5-1' }
+]
+for (const currentModelID of ['claude-fable-5-1', 'opus']) {
+  const visible = visibleModelGroups(acpCatalog(currentModelID))
+  const fallback = visible.find((group) => group.modelID === 'default')
+  assert.ok(fallback, `the default alias must stay selectable while ${currentModelID} is the current model`)
+  assert.equal(modelOptionKey(fallback.base), 'claude|default|', 'returning to the harness default must remain a selectable choice')
+}
 
 console.log('model picker grouping, ordering and filtering behavioral tests passed')

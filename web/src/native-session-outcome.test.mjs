@@ -6,6 +6,7 @@ const panel = readFileSync(new URL("./components/native-session-outcome-panel.ts
 const client = readFileSync(new URL("./project-outcome-client.ts", import.meta.url), "utf8")
 const reviewEvidence = readFileSync(new URL("./native-session-review-evidence.ts", import.meta.url), "utf8")
 const desktopTransport = readFileSync(new URL("../electron/request-transport.ts", import.meta.url), "utf8")
+const mobileCompactChat = readFileSync(new URL("./mobile-compact-chat.css", import.meta.url), "utf8")
 
 assert.ok(observer.includes("<NativeSessionOutcomePanel"), "native Sessions must expose the Project outcome review surface")
 assert.ok(observer.includes("conversation={presentedConversation}"), "outcome review must receive the same structured lifecycle-enriched runtime shown by the conversation")
@@ -50,5 +51,11 @@ assert.equal(client.includes("patch"), false, "outcome client must not carry pat
 assert.equal(client.includes("hunk"), false, "outcome client must not carry diff hunks")
 
 assert.ok(desktopTransport.includes("v1\\/project-(?:identity|outcome)"), "desktop Project metadata must stay on the machine daemon instead of being agent scoped")
+
+// On a phone the outcome panel is the only route to branch, changed files and review evidence;
+// the compact skin must keep its collapsible toggle reachable instead of hiding the whole panel.
+assert.doesNotMatch(mobileCompactChat, /\.hr-native-session-observer > \.hr-native-outcome \{\s*display: none/, "compact mobile styles must not hide the Session outcome panel")
+assert.match(mobileCompactChat, /\.hr-native-session-observer > \.hr-native-outcome:first-child \{\s*margin-top: 56px !important;/, "compact mobile must reserve the floating header height before a lineage-less outcome panel so its toggle stays reachable and can be opened")
+assert.ok(panel.includes("hr-native-outcome-toggle"), "the outcome panel must keep its collapsible toggle for the phone row")
 
 console.log("native Session Project outcome tests passed")

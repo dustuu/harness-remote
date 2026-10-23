@@ -37,7 +37,7 @@ test("mobile Session list keeps Machine -> Project -> Session navigation", () =>
 
 test("mobile has exactly Sessions Machines and Settings destinations", () => {
   assert.match(standalone, /const mobileSection = managerOpen \? "machines" : settingsOpen \? "settings" : "sessions"/)
-  assert.match(standalone, /<nav className="hr-mobile-nav" aria-label=\{t\("sf\.mainNavigation"\)\}>/)
+  assert.match(standalone, /<nav className=\{`hr-mobile-nav\$\{navPeek \? " peek" : ""\}`\} aria-label=\{t\("sf\.mainNavigation"\)\}/)
   assert.match(standalone, /<span>\{t\("nav\.sessions"\)\}<\/span>/)
   assert.match(standalone, /<span>\{t\("sf\.machines"\)\}<\/span>/)
   assert.match(standalone, /<span>\{t\("nav\.settings"\)\}<\/span>/)

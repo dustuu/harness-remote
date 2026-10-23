@@ -1,5 +1,6 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import { api } from "../api"
+import { ChevronDownIcon, RefreshIcon } from "../Icons"
 import type { AttachmentPart } from "../attachments"
 import { createCoalescedTailRefresh } from "../coalesced-tail-refresh"
 import type { ConversationController } from "../conversation-controller"
@@ -33,6 +34,7 @@ import { ModelPicker, modelOptionKey } from "./model-picker"
 import { TaskDeskConversation } from "./taskdesk-conversation"
 import { TaskDeskMessageContent } from "./taskdesk-message-content"
 import { WorkThreadAttention } from "./work-thread-attention"
+import { harnessIconUrl } from "../harness-icons"
 import { useTranslator } from "../useTranslator"
 
 const INITIAL_PAGE_SIZE = 200
@@ -47,14 +49,6 @@ const DRAFT_STORAGE_PREFIX = "harness-remote.taskdesk.draft."
 const DRAFT_PERSIST_DEBOUNCE_MS = 400
 const NATIVE_ROUTE_MODEL_SCOPE: AgentModelScope = {}
 
-const HARNESS_ICON_FILES: Record<string, string> = {
-  codex: "codex.svg",
-  claude: "claude.svg",
-  opencode: "opencode.svg",
-  opencode2: "opencode.svg",
-  omp: "omp.svg",
-  pi: "pi.svg"
-}
 
 type SessionTarget = {
   sessionID: string
@@ -158,11 +152,6 @@ function agentLabel(agents: MachineAgentHost[], agentID: string): string {
   return agents.find((agent) => agent.id === agentID)?.label || agentID || "Coding agent"
 }
 
-function harnessIconUrl(backend: string | undefined): string | undefined {
-  if (!backend) return undefined
-  const file = HARNESS_ICON_FILES[backend.toLowerCase()]
-  return file ? `${import.meta.env.BASE_URL}harness-icons/${file}` : undefined
-}
 
 function isActive(conversation: ConversationRuntime): boolean {
   return conversation.status === "starting" || conversation.status === "running"
@@ -387,6 +376,14 @@ export function WorkThreadConversation({
   const [modelsLoading, setModelsLoading] = useState(false)
   const t = useTranslator()
   const [targetModelKey, setTargetModelKey] = useState(initialModelKey)
+  const [controlsOpen, setControlsOpen] = useState(false)
+  const effortAnchorRef = useRef<HTMLDivElement>(null)
+  const [effortCardBottom, setEffortCardBottom] = useState<number | null>(null)
+  // Mahurley skin: an error stays on screen until the user dismisses it, even if the app clears it
+  // on its own a moment later (reconnect, late delivery), so a fleeting failure is never missed.
+  const [stickyError, setStickyError] = useState<string | null>(null)
+  // Bumped on every reset so the icon replays its spin even when the effort was already default.
+  const [effortResetSpin, setEffortResetSpin] = useState(0)
   // The catalog effect must depend on the scope's value, not a caller's object identity: a fresh
   // object per render would restart model discovery on every render.
   const modelScopeKey = modelScope ? `${modelScope.workThreadId ?? ""}|${modelScope.projectId ?? ""}` : ""
@@ -1214,6 +1211,48 @@ ${current}` : text) : current)
     onAttentionChangeRef.current?.(hasAttention)
   }, [hasAttention])
 
+  useEffect(() => {
+    if (error && document.documentElement.dataset.skin === "compact") setStickyError(error)
+  }, [error])
+
+  useEffect(() => {
+    if (!controlsOpen) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setControlsOpen(false)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [controlsOpen])
+
+  // The composer footer is a narrow, clipped box, so the card is fixed to the viewport and sits
+  // just above the composer shell.
+  useEffect(() => {
+    if (!controlsOpen) return
+    const place = () => {
+      const shell = effortAnchorRef.current?.closest(".uw-composer-shell")
+      if (shell) setEffortCardBottom(window.innerHeight - shell.getBoundingClientRect().top + 8)
+    }
+    place()
+    window.addEventListener("resize", place)
+    return () => window.removeEventListener("resize", place)
+  }, [controlsOpen])
+
+  const catalogDefaultModel = models.find((model) => model.isDefault && !model.variant) || models.find((model) => !model.variant)
+  const selectedModelKey = targetModelKey
+    || (currentModelForPicker ? modelOptionKey(currentModelForPicker) : "")
+    || (catalogDefaultModel ? modelOptionKey(catalogDefaultModel) : "")
+  const [selProvider, selModel] = selectedModelKey.split("|")
+  const effortOptions = selProvider && selModel
+    ? models.filter((model) => model.providerID === selProvider && model.modelID === selModel)
+    : []
+  const effortIndex = Math.max(0, effortOptions.findIndex((option) => modelOptionKey(option) === selectedModelKey))
+  const effortLabel = effortOptions.length > 1 ? (effortOptions[effortIndex]?.variant || t("card.default")) : t("card.default")
+  const selectedModelName = models.find((model) => modelOptionKey(model) === selectedModelKey)?.modelName
+    || effortOptions[0]?.modelName
+    || (currentModelForPicker?.modelID && currentModelForPicker.modelID !== "default" ? currentModelForPicker.modelID : "Harness default")
+  const modelControlsDisabled = !interactionEnabled || working || replyPending || sending || modelsLoading || !targetAgentID
+  const statePill = <ConversationStatePill working={working || replyPending || sending || replySettling || modelBootstrapBlocked} attention={hasAttention} workingLabel={conversationStateLabel} startedAt={sending || modelBootstrapBlocked ? undefined : conversation.currentTurn?.startedAt} status={conversation.status} detail={conversation.error?.message || undefined} />
+
   return (
     <div className="tdw-work-thread-conversation">
       <div className="tdw-conversation-toolbar">
@@ -1237,7 +1276,7 @@ ${current}` : text) : current)
             <ModelPicker compact models={models} value={targetModelKey} currentModel={currentModelForPicker} onChange={(value) => {
               modelSelectionTouchedRef.current = true
               setTargetModelKey(value)
-            }} disabled={!interactionEnabled || working || replyPending || sending || modelsLoading || !targetAgentID} loading={modelsLoading} placeholder={modelBootstrapBlocked ? (modelError ? "Model unavailable" : t("composer.loadingModels")) : deferModelFallback ? "Harness default" : undefined} unavailableHint={modelError || undefined} />
+            }} disabled={modelControlsDisabled} loading={modelsLoading} placeholder={modelBootstrapBlocked ? (modelError ? "Model unavailable" : t("composer.loadingModels")) : deferModelFallback ? "Harness default" : undefined} unavailableHint={modelError || undefined} />
             {modelError ? <small className="tdw-field-note" title={modelError}>Model catalog unavailable. Sending is paused until a model can be verified.</small> : null}
           </label>
         </div>
@@ -1246,7 +1285,7 @@ ${current}` : text) : current)
       </div>
 
       {routeChanged ? (
-        <div className={`tdw-route-preview${sending ? " active" : ""}`} role="status" aria-live="polite">
+        <div className={`tdw-route-preview${sending ? " active" : ""}${routeBlockedByAttachments ? " blocked" : ""}`} role="status" aria-live="polite">
           <span>{sending ? "Creating linked Session…" : "Next message will continue in"}</span>
           <strong>{routeAgentLabel}</strong>
           <small>{routeBlockedByAttachments
@@ -1271,7 +1310,7 @@ ${current}` : text) : current)
         onResolved={async () => { await refreshAttention(); await reconcile() }}
       />
 
-      {error ? <div className="tdw-chat-error" role="alert"><span>{error}</span><button type="button" onClick={() => setError(null)}>×</button></div> : null}
+      {(error || stickyError) ? <div className="tdw-chat-error" role="alert"><span>{error || stickyError}</span><button type="button" onClick={() => { setError(null); setStickyError(null) }} aria-label={t("action.dismiss")}>×</button></div> : null}
 
       <TaskDeskConversation
         messages={presentedTimeline}
@@ -1290,6 +1329,99 @@ ${current}` : text) : current)
         commands={commands}
         attachments={attachments}
         attachmentsSupported={attachmentsSupported}
+        composerAccessory={(
+          <div className="tdw-effort-anchor" ref={effortAnchorRef}>
+            <span className="tdw-composer-status">{statePill}</span>
+            <button type="button" className="uw-button tdw-controls-trigger" aria-haspopup="dialog" aria-expanded={controlsOpen} onClick={() => setControlsOpen((open) => !open)}>
+              <span>{effortOptions.length > 1 ? effortLabel : selectedModelName}</span>
+              <ChevronDownIcon size={13} />
+            </button>
+            {controlsOpen ? (
+              <>
+                <button type="button" className="tdw-controls-backdrop" aria-label={t("action.close")} onClick={() => setControlsOpen(false)} />
+                <div className={`tdw-effort-card${modelControlsDisabled ? " locked" : ""}`} role="dialog" aria-label={t("card.title")} data-harness={destinationAgent?.backend || undefined} style={effortCardBottom === null ? undefined : { bottom: effortCardBottom }}>
+                  <div className="tdw-effort-card-head">
+                    <label className="tdw-effort-card-agent" title={agentLabel(destinationAgents, targetAgentID)}>
+                      {harnessIconUrl(destinationAgent?.backend)
+                        ? <img src={harnessIconUrl(destinationAgent?.backend)} alt="" />
+                        : <span>{agentLabel(destinationAgents, targetAgentID).slice(0, 2)}</span>}
+                      {destinationAgents.length > 1 ? <ChevronDownIcon size={11} /> : null}
+                      <select
+                        aria-label={t("card.harness")}
+                        value={targetAgentID}
+                        disabled={destinationAgents.length < 2 || !interactionEnabled || working || replyPending || sending || modelBootstrapBlocked}
+                        onChange={(event) => {
+                          modelGeneration.current += 1
+                          modelSelectionTouchedRef.current = false
+                          routeSelectionTouchedRef.current = event.target.value !== currentAgentID
+                          setModels([])
+                          setModelError(null)
+                          setTargetModelKey("")
+                          setTargetAgentID(event.target.value)
+                        }}
+                      >
+                        {destinationAgents.map((agent) => <option value={agent.id} key={agent.id}>{agent.label}</option>)}
+                      </select>
+                    </label>
+                    <div className="tdw-effort-card-title">
+                      <strong>{effortOptions.length > 1 ? effortLabel : t("card.effort")}</strong>
+                      <ModelPicker compact models={models} value={targetModelKey} currentModel={currentModelForPicker} onChange={(value) => {
+                        modelSelectionTouchedRef.current = true
+                        setTargetModelKey(value)
+                      }} disabled={modelControlsDisabled} loading={modelsLoading} placeholder={selectedModelName} unavailableHint={modelError || undefined} searchOnDemand />
+                    </div>
+                    <button
+                      type="button"
+                      className="tdw-effort-card-reset"
+                      aria-label={t("card.reset")}
+                      title={t("card.reset")}
+                      disabled={modelControlsDisabled || effortOptions.length < 2}
+                      onClick={() => {
+                        setEffortResetSpin((count) => count + 1)
+                        const base = effortOptions.find((option) => !option.variant) || effortOptions[0]
+                        if (!base) return
+                        modelSelectionTouchedRef.current = true
+                        setTargetModelKey(modelOptionKey(base))
+                      }}
+                    >
+                      <span key={effortResetSpin} className={effortResetSpin ? "tdw-spin-once" : undefined}><RefreshIcon size={15} /></span>
+                    </button>
+                  </div>
+                  {modelControlsDisabled && (working || replyPending || sending) ? (
+                    <p className="tdw-effort-card-note">{t("card.locked", { agent: agentLabel(destinationAgents, targetAgentID) })}</p>
+                  ) : null}
+                  {effortOptions.length > 1 ? (
+                    <div className="tdw-effort-slider" style={{ "--effort-ratio": effortIndex / (effortOptions.length - 1) } as CSSProperties}>
+                      <div className="tdw-effort-fill" aria-hidden="true" />
+                      <div className="tdw-effort-dots" aria-hidden="true">
+                        {effortOptions.map((option, index) => <i key={modelOptionKey(option)} className={index <= effortIndex ? "passed" : ""} />)}
+                      </div>
+                      <div className="tdw-effort-knob" aria-hidden="true" />
+                      <input
+                        type="range"
+                        min={0}
+                        max={effortOptions.length - 1}
+                        step={1}
+                        value={effortIndex}
+                        disabled={modelControlsDisabled}
+                        aria-label={t("card.effort")}
+                        aria-valuetext={effortLabel}
+                        onChange={(event) => {
+                          const option = effortOptions[Number(event.target.value)]
+                          if (!option) return
+                          modelSelectionTouchedRef.current = true
+                          setTargetModelKey(modelOptionKey(option))
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <p className="tdw-effort-card-note">{t("card.noEffort")}</p>
+                  )}
+                </div>
+              </>
+            ) : null}
+          </div>
+        )}
         onAttachmentsChange={setAttachments}
         onAttachmentError={setError}
         onSend={send}

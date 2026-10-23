@@ -56,6 +56,10 @@ assert.match(standalone, /<option value="dark">\{t\("settings\.themeDark"\)\}<\/
 assert.match(preferences, /export function installAppPreferences/)
 assert.match(main, /installAppPreferences\(\)/, 'preferences must be installed before the product shell renders')
 
+// Deleting a hide rule before the one being edited must shift the edit target, otherwise saving
+// the edit would overwrite the following rule.
+assert.match(standalone, /else if \(editingRuleIndex !== null && index < editingRuleIndex\) setEditingRuleIndex\(editingRuleIndex - 1\)/, 'removing an earlier hide rule must keep the edit on the same rule')
+
 // Phone pairing (the embedded daemon's LAN exposure) is an app-level setting next to the other app
 // settings. It renders only where a desktop bridge answers, applies through the main process with
 // no save step, and the machine editor must not carry it.
