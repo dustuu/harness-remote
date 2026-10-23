@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, Menu, Notification, nativeImage, screen, session, ipcMain, type IpcMainInvokeEvent } from "electron"
+import { app, BrowserWindow, clipboard, dialog, Menu, Notification, nativeImage, screen, session, shell, ipcMain, type IpcMainInvokeEvent } from "electron"
 import { readFileSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
@@ -15,6 +15,7 @@ import { DesktopProfileError, ProfileRegistry } from "./profile-registry.js"
 import { effectiveProjectRoots, ProjectRootsError, ProjectRootsStore, validateProjectRoots } from "./project-roots.js"
 import { executeDesktopRequest } from "./request-transport.js"
 import { resolveDesktopRuntimeEnvironment } from "./shell-path.js"
+import { checkForUpdate, type UpdateStatus } from "./update-check.js"
 import type { DesktopAttentionNotification, DesktopCompletionNotification, DesktopEventSubscriptionOptions, DesktopLocalRuntimeState, DesktopMenuCommand, DesktopRequest } from "./ipc-contract.js"
 import { MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH, restoredBounds as calculateRestoredBounds } from "./window-state.js"
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -61,6 +62,12 @@ let localRuntimeState: DesktopLocalRuntimeState = { status: "starting" }
 let localRuntimeStart: Promise<DesktopLocalRuntimeState> | undefined
 let runtimeRestarting = false
 let quitting = false
+let updateCheck: Promise<UpdateStatus> | undefined
+
+function latestUpdate(force = false): Promise<UpdateStatus> {
+  if (force || !updateCheck) updateCheck = checkForUpdate(app.getVersion())
+  return updateCheck
+}
 
 function log(message: string): void {
   console.error(`[electron] ${message}`)
@@ -316,6 +323,18 @@ function createWindow(): BrowserWindow {
 }
 
 function installIPC(): void {
+  ipcMain.handle(IPC_CHANNELS.checkForUpdate, (event, force: unknown) => {
+    ensureTrustedSender(event)
+    if (force !== undefined && typeof force !== "boolean") throw new Error("Invalid update check request")
+    return latestUpdate(force === true)
+  })
+  ipcMain.handle(IPC_CHANNELS.openUpdate, async (event) => {
+    ensureTrustedSender(event)
+    const update = await latestUpdate()
+    if (update.status !== "available") return false
+    await shell.openExternal(update.releaseUrl)
+    return true
+  })
   ipcMain.handle(IPC_CHANNELS.probeMachineConfiguration, async (event, profile: unknown, path: unknown, language: unknown) => {
     ensureTrustedSender(event)
     return executeConfigurationProbe(profile, path, typeof language === "string" ? language : app.getLocale())
@@ -499,6 +518,18 @@ async function start(): Promise<void> {
   if (!isDevelopment && !isMac) Menu.setApplicationMenu(null)
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
   mainWindow = createWindow()
+  if (app.isPackaged) {
+    void latestUpdate().then((update) => {
+      if (update.status !== "available" || !Notification.isSupported()) return
+      const t = desktopTranslator(app.getLocale())
+      const notification = new Notification({
+        title: "Harness Remote",
+        body: t("settings.updateAvailable", { version: update.latestVersion })
+      })
+      notification.on("click", () => { void shell.openExternal(update.releaseUrl).catch(() => undefined) })
+      notification.show()
+    })
+  }
 }
 
 app.whenReady().then(() => start()).catch((error: unknown) => {

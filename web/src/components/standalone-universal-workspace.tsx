@@ -17,7 +17,8 @@ import {
 } from "../appPreferences"
 import { ChatIcon, LoadingIcon, RefreshIcon, ServerIcon, SettingsIcon } from "../Icons"
 import { createTranslator, languageOptions, type LanguageCode, type Translator } from "../i18n"
-import { chooseDesktopProjectFolder, desktopNetworkSettings, desktopProjectRoots, setDesktopNetworkSettings, setDesktopProjectRoots } from "../desktopBridge"
+import { chooseDesktopProjectFolder, desktopNetworkSettings, desktopProjectRoots, desktopUpdateStatus, openDesktopUpdate, setDesktopNetworkSettings, setDesktopProjectRoots } from "../desktopBridge"
+import type { DesktopUpdateStatus } from "../../electron/ipc-contract"
 import {
   availableMachineAgentCount,
   checkingMachineHealth,
@@ -573,6 +574,8 @@ function MobileSettingsPage({ onClose }: { onClose: () => void }) {
   const [network, setNetwork] = useState<{ lanPairing: boolean } | null>(null)
   const [networkBusy, setNetworkBusy] = useState(false)
   const [networkError, setNetworkError] = useState<string | null>(null)
+  const [update, setUpdate] = useState<DesktopUpdateStatus | null>(null)
+  const [updateBusy, setUpdateBusy] = useState(false)
   const t = useMemo(() => createTranslator(language), [language])
   const pageRef = useRef<HTMLElement>(null)
   useDialogDismiss(pageRef, onClose, { autoFocus: false })
@@ -582,8 +585,18 @@ function MobileSettingsPage({ onClose }: { onClose: () => void }) {
     void desktopNetworkSettings().then((state) => {
       if (!cancelled && state) setNetwork({ lanPairing: state.lanPairing })
     }).catch(() => {})
+    void desktopUpdateStatus().then((state) => {
+      if (!cancelled && state) setUpdate(state)
+    }).catch(() => {})
     return () => { cancelled = true }
   }, [])
+
+  async function refreshUpdate() {
+    setUpdateBusy(true)
+    try { setUpdate(await desktopUpdateStatus(true)) }
+    catch { setUpdate({ status: "error", currentVersion: update?.currentVersion ?? "" }) }
+    finally { setUpdateBusy(false) }
+  }
 
   /**
    * LAN pairing applies immediately: there is no separate save. The main process shows the native
@@ -659,6 +672,20 @@ function MobileSettingsPage({ onClose }: { onClose: () => void }) {
               </label>
               <p>{t("machine.networkPairingHint")}</p>
               {networkError ? <p role="alert">{networkError}</p> : null}
+            </div>
+          ) : null}
+          {update ? (
+            <div className="hr-mobile-settings-group" data-settings-update>
+              <span>{t("settings.updatesTitle")}</span>
+              <p role="status">{update.status === "available"
+                ? t("settings.updateAvailable", { version: update.latestVersion })
+                : update.status === "current"
+                  ? t("settings.updateCurrent", { version: update.currentVersion })
+                  : t("settings.updateError")}</p>
+              <div>
+                {update.status === "available" ? <button type="button" className="tdw-button primary" onClick={() => void openDesktopUpdate()}>{t("settings.updateDownload")}</button> : null}
+                <button type="button" className="tdw-button" disabled={updateBusy} onClick={() => void refreshUpdate()}>{t("settings.updateCheck")}</button>
+              </div>
             </div>
           ) : null}
         </div>

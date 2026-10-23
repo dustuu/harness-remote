@@ -18,7 +18,8 @@ import type {
   DesktopProjectRootsState,
   DesktopProjectRootsUpdate,
   DesktopRequest,
-  DesktopRequestResult
+  DesktopRequestResult,
+  DesktopUpdateStatus
 } from "./ipc-contract.js" with { "resolution-mode": "import" }
 
 const { contextBridge, ipcRenderer } = require("electron") as { contextBridge: ContextBridge; ipcRenderer: IpcRenderer }
@@ -35,6 +36,8 @@ const IPC_CHANNELS = Object.freeze({
   setProjectRoots: "desktop:project-roots:set",
   getNetworkSettings: "desktop:network:get",
   setNetworkSettings: "desktop:network:set",
+  checkForUpdate: "desktop:update:check",
+  openUpdate: "desktop:update:open",
   notifyCompletion: "desktop:completion:notify",
   notifyAttention: "desktop:attention:notify",
   attentionActivated: "desktop:attention:activated",
@@ -100,6 +103,12 @@ const harnessDesktop = Object.freeze({
   },
   setNetworkSettings(lanPairing: boolean, language?: string): Promise<DesktopNetworkSettingsUpdate> {
     return ipcRenderer.invoke(IPC_CHANNELS.setNetworkSettings, lanPairing, language)
+  },
+  checkForUpdate(force = false): Promise<DesktopUpdateStatus> {
+    return ipcRenderer.invoke(IPC_CHANNELS.checkForUpdate, force)
+  },
+  openUpdate(): Promise<boolean> {
+    return ipcRenderer.invoke(IPC_CHANNELS.openUpdate)
   },
   async subscribeEvents(
     profileId: string,
