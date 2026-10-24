@@ -1,11 +1,23 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import test from "node:test"
-import { mergeLatestMessagePage, prependOlderMessagePage } from "./message-pages.ts"
+import {
+  loadInitialMessageFeed,
+  mergeLatestMessageFeed,
+  mergeLatestMessagePage,
+  prependOlderMessagePage
+} from "./message-pages.ts"
 
 function message(id, text = id) {
   return {
     info: { id, role: "assistant", time: { created: 1, updated: 1 } },
+    parts: [{ id: `${id}-part`, type: "text", text }]
+  }
+}
+
+function userMessage(id, text = id) {
+  return {
+    info: { id, role: "user", time: { created: 1 } },
     parts: [{ id: `${id}-part`, type: "text", text }]
   }
 }
@@ -77,6 +89,8 @@ test("Session conversation exposes bounded older-history loading without snappin
   const historyStyles = readFileSync(new URL("./taskdesk-history-loader.css", import.meta.url), "utf8")
 
   assert.match(controller, /controller\.loadMessagePage\(target\.config, target\.sessionID, target\.directory/)
+  assert.match(controller, /loadInitialMessageFeed\(/)
+  assert.match(controller, /mergeLatestMessageFeed\(existing, page\)/)
   assert.match(controller, /async function loadOlder\(\)/)
   assert.match(controller, /prependOlderMessagePage\(feed\.messages, page\.messages\)/)
   assert.match(controller, /onLoadOlder=\{loadOlder\}/)
@@ -108,4 +122,70 @@ test("a message first seen between two known ones lands at its page position, no
   const older = message("older-0")
   const withHistory = mergeLatestMessagePage([prompt, queued], [older, prompt, queued])
   assert.deepEqual(withHistory.map((item) => item.info.id), ["older-0", "prompt-1", "queued-2"], "a new first row goes before the first known one")
+})
+
+test("a live tail refresh cannot resurrect earlier-history paging after the user loaded every turn", () => {
+  const loaded = {
+    messages: [userMessage("u1"), message("a1"), userMessage("u2"), message("a2")],
+    before: undefined,
+    hasMore: false
+  }
+  // The newest page still starts at the latest turn, so it reports older history that the mounted
+  // feed has already loaded. Its metadata must not reopen the "Earlier messages" affordance.
+  const latest = { messages: [userMessage("u2"), message("a2")], before: "u2", hasMore: true }
+  const merged = mergeLatestMessageFeed(loaded, latest)
+
+  assert.deepEqual(merged.messages.map((item) => item.info.id), ["u1", "a1", "u2", "a2"])
+  assert.equal(merged.hasMore, false)
+  assert.equal(merged.before, undefined)
+})
+
+test("a complete newest page clears stale paging metadata", () => {
+  const existing = { messages: [userMessage("u1"), message("a1")], before: "u1", hasMore: true }
+  const latest = { messages: [userMessage("u1"), message("a1")], before: undefined, hasMore: false }
+  const merged = mergeLatestMessageFeed(existing, latest)
+
+  assert.equal(merged.hasMore, false)
+  assert.equal(merged.before, undefined)
+})
+
+test("the initial feed walks back to a prompt when the newest page contains only activity", async () => {
+  const calls = []
+  const feed = await loadInitialMessageFeed(async (before, limit) => {
+    calls.push([before, limit])
+    if (!before) return { messages: [message("a1"), message("a2")], before: "a1", hasMore: true }
+    return { messages: [userMessage("u1")], before: undefined, hasMore: false }
+  }, { initialLimit: 200, olderLimit: 500, maxOlderPages: 3 })
+
+  assert.deepEqual(calls, [[undefined, 200], ["a1", 500]])
+  assert.deepEqual(feed.messages.map((item) => item.info.id), ["u1", "a1", "a2"])
+  assert.equal(feed.hasMore, false)
+})
+
+test("the initial feed also recovers a missing prompt before a newer complete turn", async () => {
+  const calls = []
+  const feed = await loadInitialMessageFeed(async (before, limit) => {
+    calls.push([before, limit])
+    if (!before) return {
+      messages: [message("a1"), userMessage("u2"), message("a2")],
+      before: "a1", hasMore: true
+    }
+    return { messages: [userMessage("u1")], before: undefined, hasMore: false }
+  }, { initialLimit: 200, olderLimit: 500, maxOlderPages: 3 })
+
+  assert.deepEqual(calls, [[undefined, 200], ["a1", 500]])
+  assert.deepEqual(feed.messages.map((item) => item.info.id), ["u1", "a1", "u2", "a2"])
+  assert.equal(feed.hasMore, false)
+})
+
+test("the initial feed leaves a page that already contains a prompt untouched", async () => {
+  const calls = []
+  const initial = { messages: [userMessage("u1"), message("a1")], before: "u1", hasMore: true }
+  const feed = await loadInitialMessageFeed(async (before, limit) => {
+    calls.push([before, limit])
+    return initial
+  }, { initialLimit: 200, olderLimit: 500, maxOlderPages: 3 })
+
+  assert.deepEqual(calls, [[undefined, 200]])
+  assert.equal(feed, initial)
 })

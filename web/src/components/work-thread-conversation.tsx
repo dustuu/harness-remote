@@ -6,7 +6,7 @@ import { createCoalescedTailRefresh } from "../coalesced-tail-refresh"
 import type { ConversationController } from "../conversation-controller"
 import { conversationTurnSessionID, conversationTurns, type ConversationRuntime, type ConversationTurn } from "../conversation-runtime"
 import { midTurnPromptPolicy, messageRowText, type QueuedPromptEntry } from "../mid-turn-policy"
-import { mergeLatestMessagePage, prependOlderMessagePage } from "../message-pages"
+import { loadInitialMessageFeed, mergeLatestMessageFeed, prependOlderMessagePage } from "../message-pages"
 import { isMachineTransportFailure as isTransportFailure } from "../machine-request-error"
 import { provenCopilotAutoDefault, shouldClearDeferredCatalogDefault } from "../native-session-model"
 import { nativeSessionRouteChanged, type NativeSessionRouteContinueInput, type NativeSessionRouteMachine } from "../native-session-routing"
@@ -39,6 +39,7 @@ import { useTranslator } from "../useTranslator"
 
 const INITIAL_PAGE_SIZE = 200
 const OLDER_PAGE_SIZE = 500
+const INITIAL_HISTORY_BACKFILL_PAGES = 3
 const ACTIVE_RECONCILE_MS = 5_000
 const REPLY_SETTLE_RECONCILE_MS = 1_500
 const REPLY_SETTLE_IDLE_GRACE_MS = 20_000
@@ -530,8 +531,10 @@ export function WorkThreadConversation({
   }, [currentAgentID, currentConversationModelKey])
 
   const loadInitialTarget = useCallback(async (target: SessionTarget): Promise<SessionFeed> => {
-    const page = await controller.loadMessagePage(target.config, target.sessionID, target.directory, undefined, INITIAL_PAGE_SIZE, false)
-    return { messages: page.messages, before: page.before, hasMore: page.hasMore }
+    return loadInitialMessageFeed(
+      (before, limit) => controller.loadMessagePage(target.config, target.sessionID, target.directory, before, limit, false),
+      { initialLimit: INITIAL_PAGE_SIZE, olderLimit: OLDER_PAGE_SIZE, maxOlderPages: INITIAL_HISTORY_BACKFILL_PAGES }
+    )
   }, [controller])
 
   useEffect(() => {
@@ -745,11 +748,9 @@ export function WorkThreadConversation({
         setFeeds((current) => {
           const existing = current[session]
           if (!existing) return { ...current, [session]: { messages: page.messages, before: page.before, hasMore: page.hasMore } }
-          const messages = mergeLatestMessagePage(existing.messages, page.messages, { complete: !page.hasMore })
-          const hasMore = existing.hasMore || page.hasMore
-          const before = existing.before || page.before
-          if (messages === existing.messages && hasMore === existing.hasMore && before === existing.before) return current
-          return { ...current, [session]: { ...existing, messages, hasMore, before } }
+          const next = mergeLatestMessageFeed(existing, page)
+          if (next === existing) return current
+          return { ...current, [session]: next }
         })
       } catch (reason) {
         if (isTransportFailure(reason)) onConnectionIssueRef.current?.()

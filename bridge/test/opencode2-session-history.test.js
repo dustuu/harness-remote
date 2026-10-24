@@ -47,15 +47,60 @@ test('native export preserves final answer, stable identities and terminal metad
   assert.deepEqual(await service.messagePage('ses_test'), page)
 })
 
-test('native export paging retains turn order and invalid exports fail visibly', async () => {
+test('native export paging keeps whole user turns and reports only earlier turns', async () => {
+  const assistant = (id) => ({ id, type: 'assistant', time: { created: 1, completed: 2 }, content: [{ type: 'text', text: id }] })
+  const messages = []
+  for (let turn = 1; turn <= 23; turn += 1) {
+    messages.push({ id: `u${turn}`, type: 'user', time: { created: turn }, text: `prompt ${turn}`, files: [] })
+    messages.push(...Array.from({ length: 20 }, (_, index) => assistant(`a${turn}-${index}`)))
+  }
+  const loader = createOpenCode2HistoryLoader({
+    runExport: async () => ({ info: { id: 'ses_turns' }, messages: structuredClone(messages) })
+  })
+
+  // The limit would slice inside the newest turn. Show twenty complete exchanges at once.
+  const newest = await loader.page('ses_turns', { limit: 5 })
+  assert.equal(newest.messages[0].info.id, 'u4')
+  assert.equal(newest.messages.length, 420)
+  assert.equal(newest.before, 'u4')
+  assert.equal(newest.hasMore, true)
+
+  const oldest = await loader.page('ses_turns', { limit: 5, before: newest.before })
+  assert.equal(oldest.messages[0].info.id, 'u1')
+  assert.equal(oldest.messages.length, 63)
+  assert.equal(oldest.before, null)
+  assert.equal(oldest.hasMore, false)
+  assert.equal(oldest.model, undefined)
+})
+
+test('a three-prompt Session with many assistant steps opens complete without earlier-history paging', async () => {
+  const messages = []
+  for (let turn = 1; turn <= 3; turn += 1) {
+    messages.push({ id: `u${turn}`, type: 'user', text: `prompt ${turn}`, files: [] })
+    messages.push(...Array.from({ length: 110 }, (_, index) => ({
+      id: `a${turn}-${index}`, type: 'assistant', content: [{ type: 'text', text: 'step' }]
+    })))
+  }
+  const loader = createOpenCode2HistoryLoader({
+    runExport: async () => ({ info: { id: 'ses_short' }, messages })
+  })
+  const page = await loader.page('ses_short', { limit: 200 })
+  assert.deepEqual(page.messages.filter((message) => message.info.role === 'user').map((message) => message.info.id), ['u1', 'u2', 'u3'])
+  assert.equal(page.messages.length, 333)
+  assert.equal(page.before, null)
+  assert.equal(page.hasMore, false)
+})
+
+test('native export paging does not slice a long single turn away from its prompt', async () => {
   const loader = historyLoader()
-  const tail = await loader.page('ses_test', { limit: 1 })
-  assert.equal(tail.messages[0].info.id, 'a2')
-  assert.equal(tail.before, 'a2')
-  const older = await loader.page('ses_test', { limit: 2, before: tail.before })
-  assert.deepEqual(older.messages.map(m => m.info.id), ['u1', 'a1'])
-  assert.equal(older.hasMore, false)
-  assert.equal(older.model, undefined)
+  const page = await loader.page('ses_test', { limit: 1 })
+  assert.deepEqual(page.messages.map(message => message.info.id), ['u1', 'a1', 'a2'])
+  assert.equal(page.before, null)
+  assert.equal(page.hasMore, false)
+})
+
+test('native export paging rejects invalid cursors and invalid exports visibly', async () => {
+  const loader = historyLoader()
   await assert.rejects(loader.page('ses_test', { before: 'missing' }), /cursor/)
   await assert.rejects(createOpenCode2HistoryLoader({ runExport: async () => ({}) })('ses_test'), /Invalid/)
 })

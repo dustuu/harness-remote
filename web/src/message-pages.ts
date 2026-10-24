@@ -1,5 +1,11 @@
 import type { MessageEnvelope } from "./types"
 
+export type MessageFeed = {
+  messages: MessageEnvelope[]
+  before?: string
+  hasMore: boolean
+}
+
 function sameEnvelope(left: MessageEnvelope, right: MessageEnvelope): boolean {
   if (left === right) return true
   if (left.info.id !== right.info.id) return false
@@ -73,4 +79,49 @@ export function prependOlderMessagePage(existing: MessageEnvelope[], older: Mess
   const existingIDs = new Set(existing.map((message) => message.info.id))
   const additions = older.filter((message) => !existingIDs.has(message.info.id))
   return additions.length ? [...additions, ...existing] : existing
+}
+
+/**
+ * Merge a newest-page refresh into a feed that may already have older pages loaded.
+ *
+ * The incoming page always describes its own tail only, so its cursor cannot replace an older
+ * frontier the user has already paged to. Keeping `existing.hasMore || latest.hasMore` resurrected
+ * the "Earlier messages" button after every live refresh, even when every earlier turn was already
+ * on screen. Only a page that actually reaches back past the retained prefix may move the frontier.
+ */
+export function mergeLatestMessageFeed(existing: MessageFeed, latest: MessageFeed): MessageFeed {
+  const messages = mergeLatestMessagePage(existing.messages, latest.messages, { complete: !latest.hasMore })
+  const latestIDs = new Set(latest.messages.map((message) => message.info.id))
+  const retainedOlderPrefix = messages.length > 0
+    && latest.messages.length > 0
+    && !latestIDs.has(messages[0].info.id)
+  const before = retainedOlderPrefix ? existing.before : latest.before
+  const hasMore = retainedOlderPrefix ? existing.hasMore : latest.hasMore
+  if (messages === existing.messages && before === existing.before && hasMore === existing.hasMore) return existing
+  return { messages, before, hasMore }
+}
+
+/**
+ * Load a Session's first feed through the newest user prompt.
+ *
+ * A harness can store one native message per assistant step, so a page of raw messages may contain
+ * only activity from a turn whose prompt is older. The timeline is built from user turns, which made
+ * that Session render as empty or cut off the earliest visible reply until the user clicked "Earlier
+ * messages". Walk back a bounded number of pages until the first message is a prompt; the bridge
+ * normally aligns pages to turns itself, so this is a
+ * recovery path for older daemons and harnesses with a different message shape.
+ */
+export async function loadInitialMessageFeed(
+  loadPage: (before: string | undefined, limit: number) => Promise<MessageFeed>,
+  { initialLimit, olderLimit, maxOlderPages }: { initialLimit: number; olderLimit: number; maxOlderPages: number }
+): Promise<MessageFeed> {
+  let feed: MessageFeed = await loadPage(undefined, initialLimit)
+  for (let olderPages = 0; olderPages < maxOlderPages; olderPages += 1) {
+    if (!feed.hasMore || !feed.before || feed.messages[0]?.info.role === "user") return feed
+    const older = await loadPage(feed.before, olderLimit)
+    const messages = prependOlderMessagePage(feed.messages, older.messages)
+    if (messages === feed.messages && older.before === feed.before && older.hasMore === feed.hasMore) return feed
+    feed = { messages, before: older.before, hasMore: older.hasMore }
+  }
+  return feed
 }
