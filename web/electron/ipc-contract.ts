@@ -13,6 +13,8 @@ export const IPC_CHANNELS = Object.freeze({
   setProjectRoots: "desktop:project-roots:set",
   getNetworkSettings: "desktop:network:get",
   setNetworkSettings: "desktop:network:set",
+  checkForUpdate: "desktop:update:check",
+  openUpdate: "desktop:update:open",
   notifyCompletion: "desktop:completion:notify",
   notifyAttention: "desktop:attention:notify",
   attentionActivated: "desktop:attention:activated",
@@ -47,6 +49,10 @@ export type DesktopProjectRootsUpdate = DesktopProjectRootsState & { cancelled: 
 
 export type DesktopNetworkSettingsState = { lanPairing: boolean }
 export type DesktopNetworkSettingsUpdate = DesktopNetworkSettingsState & { cancelled: boolean; error?: string }
+export type DesktopUpdateStatus =
+  | { status: "current"; currentVersion: string }
+  | { status: "available"; currentVersion: string; latestVersion: string; releaseUrl: string }
+  | { status: "error"; currentVersion: string }
 
 export type DesktopCompletionNotification = {
   title: string

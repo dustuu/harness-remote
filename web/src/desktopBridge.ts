@@ -17,7 +17,8 @@ import type {
   DesktopProjectRootsUpdate,
   DesktopRequest,
   DesktopRequestResult,
-  DesktopResponse
+  DesktopResponse,
+  DesktopUpdateStatus
 } from "../electron/ipc-contract"
 import { loadLanguage } from "./appPreferences"
 import { createTranslator } from "./i18n"
@@ -38,6 +39,8 @@ export type DesktopBridgeAPI = {
   setProjectRoots(roots: string[], language?: string): Promise<DesktopProjectRootsUpdate>
   getNetworkSettings(): Promise<DesktopNetworkSettingsState>
   setNetworkSettings(lanPairing: boolean, language?: string): Promise<DesktopNetworkSettingsUpdate>
+  checkForUpdate(force?: boolean): Promise<DesktopUpdateStatus>
+  openUpdate(): Promise<boolean>
   subscribeEvents(
     profileId: string,
     options: DesktopEventSubscriptionOptions,
@@ -250,6 +253,14 @@ export async function setDesktopProjectRoots(roots: string[]): Promise<DesktopPr
 
 export async function desktopNetworkSettings(): Promise<DesktopNetworkSettingsState | null> {
   return bridge()?.getNetworkSettings() ?? null
+}
+
+export async function desktopUpdateStatus(force = false): Promise<DesktopUpdateStatus | null> {
+  return bridge()?.checkForUpdate(force) ?? null
+}
+
+export async function openDesktopUpdate(): Promise<boolean> {
+  return bridge()?.openUpdate() ?? false
 }
 
 export async function setDesktopNetworkSettings(lanPairing: boolean): Promise<DesktopNetworkSettingsUpdate | null> {

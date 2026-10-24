@@ -23,6 +23,8 @@ Run, observe, resume and continue work across **Codex CLI, Claude Code, GitHub C
 
 Download Harness Remote from the [latest release](https://github.com/giuliastro/harness-remote/releases/latest) and open it.
 
+The installed desktop app checks GitHub for a newer stable release when it starts and shows a notification if one is available. **Settings → Updates** shows the installed version and lets you check again or open the official release download. Install the downloaded update using your operating system's normal installer; the app does not replace its own files.
+
 On Windows and macOS, the local computer works immediately: **you do not need to start a gateway in a terminal**. The desktop app starts and supervises its local Machine runtime automatically.
 
 ### Add another computer

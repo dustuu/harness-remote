@@ -45,6 +45,12 @@ type TranslationKey =
   | 'settings.themeSystem'
   | 'settings.themeLight'
   | 'settings.themeDark'
+  | 'settings.updatesTitle'
+  | 'settings.updateAvailable'
+  | 'settings.updateCurrent'
+  | 'settings.updateError'
+  | 'settings.updateDownload'
+  | 'settings.updateCheck'
   | 'settings.thisComputer'
   | 'settings.projectFolders'
   | 'settings.projectFoldersHint'
@@ -710,6 +716,12 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'settings.themeSystem': 'System',
     'settings.themeLight': 'Light',
     'settings.themeDark': 'Dark',
+    'settings.updatesTitle': 'Updates',
+    'settings.updateAvailable': 'Version {version} is available.',
+    'settings.updateCurrent': 'Version {version} is up to date.',
+    'settings.updateError': 'Could not check for updates.',
+    'settings.updateDownload': 'View download',
+    'settings.updateCheck': 'Check again',
     'settings.thisComputer': 'This computer',
     'settings.projectFolders': 'Project folders',
     'settings.projectFoldersHint': 'Choose folders available when creating a local Session. With no folders listed, your home folder is used.',
@@ -1354,6 +1366,12 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'settings.themeSystem': 'Sistema',
     'settings.themeLight': 'Chiaro',
     'settings.themeDark': 'Scuro',
+    'settings.updatesTitle': 'Aggiornamenti',
+    'settings.updateAvailable': 'È disponibile la versione {version}.',
+    'settings.updateCurrent': 'La versione {version} è aggiornata.',
+    'settings.updateError': 'Impossibile controllare gli aggiornamenti.',
+    'settings.updateDownload': 'Apri il download',
+    'settings.updateCheck': 'Controlla di nuovo',
     'settings.thisComputer': 'Questo computer',
     'settings.projectFolders': 'Cartelle dei progetti',
     'settings.projectFoldersHint': 'Scegli le cartelle disponibili quando crei una Sessione locale. Se non elenchi cartelle, viene usata la cartella home.',
@@ -1998,6 +2016,12 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'settings.themeSystem': '跟隨系統',
     'settings.themeLight': '淺色',
     'settings.themeDark': '深色',
+    'settings.updatesTitle': '更新',
+    'settings.updateAvailable': '版本 {version} 已推出。',
+    'settings.updateCurrent': '版本 {version} 已是最新版本。',
+    'settings.updateError': '無法檢查更新。',
+    'settings.updateDownload': '查看下載',
+    'settings.updateCheck': '重新檢查',
     'settings.thisComputer': '這台電腦',
     'settings.projectFolders': '專案資料夾',
     'settings.projectFoldersHint': '選擇建立本機工作階段時可用的資料夾。若未列出資料夾，會使用您的家目錄。',
@@ -2642,6 +2666,12 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'settings.themeSystem': '跟随系统',
     'settings.themeLight': '浅色',
     'settings.themeDark': '深色',
+    'settings.updatesTitle': '更新',
+    'settings.updateAvailable': '版本 {version} 已发布。',
+    'settings.updateCurrent': '版本 {version} 已是最新版本。',
+    'settings.updateError': '无法检查更新。',
+    'settings.updateDownload': '查看下载',
+    'settings.updateCheck': '重新检查',
     'settings.thisComputer': '这台电脑',
     'settings.projectFolders': '项目文件夹',
     'settings.projectFoldersHint': '选择创建本地会话时可用的文件夹。未列出文件夹时，会使用您的主目录。',
@@ -3286,6 +3316,12 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'settings.themeSystem': 'Sistema',
     'settings.themeLight': 'Claro',
     'settings.themeDark': 'Escuro',
+    'settings.updatesTitle': 'Atualizações',
+    'settings.updateAvailable': 'A versão {version} está disponível.',
+    'settings.updateCurrent': 'A versão {version} está atualizada.',
+    'settings.updateError': 'Não foi possível verificar atualizações.',
+    'settings.updateDownload': 'Ver download',
+    'settings.updateCheck': 'Verificar novamente',
     'settings.thisComputer': 'Este computador',
     'settings.projectFolders': 'Pastas de projeto',
     'settings.projectFoldersHint': 'Escolha as pastas disponíveis ao criar uma Sessão local. Sem nenhuma pasta listada, a pasta pessoal (home) é usada.',
