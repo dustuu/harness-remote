@@ -164,7 +164,27 @@
   border: 1px solid var(--uw-border, rgba(127, 127, 127, 0.24));
   border-radius: 12px;
   background: var(--tdw-panel, rgba(127, 127, 127, 0.04));
-  overflow: hidden;
+  overflow: visible;
+}
+
+/* The model catalog is taller than this compact handoff form. Keep its scrollable list in the
+   viewport instead of clipping it at the form's rounded border or the Session pane's edge. */
+@media (min-width: 781px) {
+  .hr-cross-machine-panel .tdw-model-popover {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    width: min(620px, calc(100vw - 32px));
+    height: min(660px, calc(100dvh - 32px));
+    max-height: none;
+    transform: translate(-50%, -50%);
+  }
+}
+
+.hr-cross-machine-panel .tdw-model-results {
+  flex: 1 1 auto;
+  scrollbar-gutter: stable;
 }
 
 .hr-cross-machine-toggle {

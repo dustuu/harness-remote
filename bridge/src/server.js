@@ -6,7 +6,8 @@ import { AcpPromptEchoFilter } from "./acp-prompt-echo-filter.js"
 import { AcpService } from "./acp-service.js"
 import { harnessProfile } from "./harness-profiles.js"
 import { createLiveStatusProbe, overlayLiveStatus, probeLiveStatuses } from "./live-session-status.js"
-import { allowedOrigin, applyCorsHeaders, matchesCredentials, writeJSON } from "./http-policy.js"
+import { insideRoot } from "./project-catalog.js"
+import { allowedOrigin, applyCorsHeaders, matchesCredentials, guardRequestHandler, writeJSON } from "./http-policy.js"
 
 const ATTACHMENT_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"])
 const MAX_ATTACHMENTS = 8
@@ -106,7 +107,7 @@ function writeSSE(response, event, data) {
 async function allowedDirectory(candidate, config) {
   const resolved = await realpath(candidate)
   const roots = await Promise.all((config.roots.length ? config.roots : [process.cwd()]).map((root) => realpath(root)))
-  if (!roots.some((root) => resolved === root || !path.relative(root, resolved).startsWith(`..${path.sep}`) && path.relative(root, resolved) !== "..")) {
+  if (!roots.some((root) => insideRoot(root, resolved))) {
     throw new Error("Directory is outside the configured --root boundary")
   }
   return resolved
@@ -331,7 +332,7 @@ export function createBridgeServer({ config, acp, serviceOptions, machineRegistr
     }
   }
 
-  const server = http.createServer(async (request, response) => {
+  const server = http.createServer(guardRequestHandler(async (request, response) => {
     applyCorsHeaders(request, response, config)
     if (request.method === "OPTIONS") {
       response.writeHead(allowedOrigin(request, config) ? 204 : 403)
@@ -556,7 +557,7 @@ export function createBridgeServer({ config, acp, serviceOptions, machineRegistr
     } catch (error) {
       writeJSON(response, 400, { error: error instanceof Error ? error.message : "Request failed" })
     }
-  })
+  }))
   server.on("close", unsubscribeActivity)
   // The machine task launcher must use this exact service so task-created ACP sessions retain
   // their title, prompt, live messages, and ownership when the user switches harnesses.
