@@ -6,6 +6,7 @@ import { AcpPromptEchoFilter } from "./acp-prompt-echo-filter.js"
 import { AcpService } from "./acp-service.js"
 import { harnessProfile } from "./harness-profiles.js"
 import { createLiveStatusProbe, overlayLiveStatus, probeLiveStatuses } from "./live-session-status.js"
+import { insideRoot } from "./project-catalog.js"
 import { allowedOrigin, applyCorsHeaders, matchesCredentials, guardRequestHandler, writeJSON } from "./http-policy.js"
 
 const ATTACHMENT_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"])
@@ -106,7 +107,7 @@ function writeSSE(response, event, data) {
 async function allowedDirectory(candidate, config) {
   const resolved = await realpath(candidate)
   const roots = await Promise.all((config.roots.length ? config.roots : [process.cwd()]).map((root) => realpath(root)))
-  if (!roots.some((root) => resolved === root || !path.relative(root, resolved).startsWith(`..${path.sep}`) && path.relative(root, resolved) !== "..")) {
+  if (!roots.some((root) => insideRoot(root, resolved))) {
     throw new Error("Directory is outside the configured --root boundary")
   }
   return resolved
