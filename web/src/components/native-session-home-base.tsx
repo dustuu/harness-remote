@@ -1024,7 +1024,9 @@ export function NativeSessionHome({
     filter === "failed" || filter === "completed" || filter === "recent" ? filter : ""
   const showOperationalFilter = bucketCounts.failed + bucketCounts.completed + bucketCounts.recent > 0 || Boolean(operationalFilter)
 
-  const hasSessionFilters = Boolean(query.trim() || agentFilter || projectFilter || modelFilter || filter !== "all" || machineFilter)
+  // Machine and agent filters are already guaranteed by each cursor's discovery scope. Only
+  // content filters need to inspect later pages to know whether a matching Session exists.
+  const hasSessionFilters = Boolean(query.trim() || projectFilter || modelFilter || filter !== "all")
   const matchesActiveFilters = (item: RecordWithMachine) => {
     if (deletedKeysRef.current?.has(recordKey(item))) return false
     const projection = projectionForItem(item)
@@ -1038,6 +1040,11 @@ export function NativeSessionHome({
   const machineHasMatchingOlderPage = (machineID: string) => [...pageCache.current.values()].some((entry) =>
     entry.machine.id === machineID
     && firstMatchingOlderPage(entry.olderProbePages || [], matchesActiveFilters) >= 0
+  )
+  const machineHasScopedOlderCursor = (machineID: string) => [...pageCache.current.values()].some((entry) =>
+    entry.machine.id === machineID
+    && entry.nextCursor
+    && (!agentFilter || matchesAgentFilter(agentFilter, entry.agent.id, entry.agent.backend))
   )
 
   useEffect(() => {
@@ -1069,7 +1076,8 @@ export function NativeSessionHome({
       // Compact skin: the folders being worked on come first.
       const projects = compactSkin ? [...machineProjects].sort((left, right) => right.updatedAt - left.updatedAt) : machineProjects
       const filtering = Boolean(query.trim() || agentFilter || projectFilter || modelFilter || filter !== "all" || machineFilter)
-      if (!projects.length && filtering && !machineHasMatchingOlderPage(machine.id)) return []
+      if (!projects.length && filtering && !machineHasMatchingOlderPage(machine.id)
+        && !(!hasSessionFilters && machineHasScopedOlderCursor(machine.id))) return []
       // While searching or filtering the Recent group would only repeat the results below it.
       const recent = compactSkin && recentsEnabled && !filtering
         ? projects
