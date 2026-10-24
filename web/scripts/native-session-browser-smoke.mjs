@@ -555,7 +555,7 @@ async function assertExistingSessionContract(browser, viewport, mobile) {
 
   await openSession(page, "PI v3-first regression session")
   assert.equal(claimCount, 0, "opening and reading an external PI Session must not claim its writer")
-  assert.ok(modelCatalogReads > 0, "the mature v3 controller must load the PI model catalog without claiming writer ownership")
+  await waitFor(() => modelCatalogReads > 0, "the mature v3 controller to load the PI model catalog without claiming writer ownership")
   await waitFor(() => sseResponses.size > 0, "PI v3 live event connection")
 
   for (const marker of ["PI-HISTORY-USER-1", "PI-HISTORY-ASSISTANT-1", "PI-HISTORY-USER-2", "PI-HISTORY-ASSISTANT-2"]) {
