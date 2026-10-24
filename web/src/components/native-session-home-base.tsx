@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { createPortal } from "react-dom"
 import { listMachineProjects, type MachineProject } from "../machineClient"
 import { canCreateNativeSession, createNativeSessionTarget } from "../native-session-create"
 import {
@@ -20,13 +21,15 @@ import {
 } from "../native-session-federation-labels"
 import type { MachineAgentHost, MachineSnapshot } from "../types"
 import { nativeSessionDisplayTitle } from "../native-session-title"
-import { nextFinishedKeys, withoutFinishedKey, type SessionRailState } from "../native-session-unseen"
+import { countVisibleFinishedKeys, nextFinishedKeys, withoutFinishedKey, type SessionRailState } from "../native-session-unseen"
 import { useLanguage, useTranslator } from "../useTranslator"
 import type { Translator } from "../i18n"
 import type { WorkspaceMachine } from "../workspaceMachines"
 import { AgentIcon, ChatIcon, ChevronDownIcon, FolderIcon, LoadingIcon, PlusIcon, SearchIcon, ServerIcon } from "../Icons"
 import "../native-session-home.css"
 import "../native-session-home-ux.css"
+import { harnessIconUrl } from "../harness-icons"
+import { activeSkin, APP_PREFERENCES_CHANGED_EVENT, loadHideRules, loadRecentsEnabled, titleMatchesHideRules } from "../appPreferences"
 
 type Source = {
   machine: WorkspaceMachine
@@ -43,6 +46,25 @@ type RecordWithMachine = {
   project?: MachineProject
 }
 
+/** Sessions shown in each machine's "Recent" group: the ones used last, across every Project. */
+const RECENT_GROUP_SIZE = 8
+/**
+ * The agent filter holds an agent id (the shared harness select) or, from a Mahurley logo,
+ * `backend:<name>`, which spans every machine running that backend.
+ */
+const BACKEND_FILTER_PREFIX = "backend:"
+function backendFilterValue(backend: string): string {
+  return `${BACKEND_FILTER_PREFIX}${backend}`
+}
+function isBackendFilter(filter: string): boolean {
+  return filter.startsWith(BACKEND_FILTER_PREFIX)
+}
+function matchesAgentFilter(filter: string, agentId: string, backend: string): boolean {
+  return isBackendFilter(filter) ? backend === filter.slice(BACKEND_FILTER_PREFIX.length) : agentId === filter
+}
+/** Mahurley skin: coding-agent logos shown beside the status tabs before the rest collapse into "+N". */
+const FILTER_AGENT_LIMIT = 4
+
 type ProjectGroup = {
   key: string
   machine: WorkspaceMachine
@@ -50,6 +72,8 @@ type ProjectGroup = {
   directory: string
   sessions: RecordWithMachine[]
   updatedAt: number
+  /** The machine's "Recent" group rather than a Project. */
+  recent?: boolean
 }
 
 type CreateMachine = {
@@ -101,6 +125,8 @@ type Props = {
   /** Exposes the currently scoped attention identities so the Inbox wrapper can union counts. */
   onAttentionKeysChange?: (keys: ReadonlySet<string>) => void
   selectedKey?: string
+  /** False when the selected Session is not on screen (phone list view); it then keeps its unseen mark. */
+  selectionOnScreen?: boolean
   selectedState?: SessionPresentationState
   /** Fires when native Session discovery has settled at least once for the current machines. */
   onDiscoveredChange?: (discovered: boolean) => void
@@ -118,14 +144,6 @@ const SESSION_HOME_REFRESH_MS = 30_000
 const COLLAPSED_PROJECT_SESSION_COUNT = 5
 type SessionFilter = "all" | FederatedSessionBucket
 
-const HARNESS_ICON_FILES: Record<string, string> = {
-  codex: "codex.svg",
-  claude: "claude.svg",
-  opencode: "opencode.svg",
-  opencode2: "opencode.svg",
-  omp: "omp.svg",
-  pi: "pi.svg"
-}
 
 function sessionWorking(record: NativeSessionRecord): boolean {
   const value = record.status?.type?.trim().toLowerCase() || ""
@@ -159,10 +177,6 @@ function presentationLabel(state: SessionPresentationState, t: Translator): stri
         : t("sf.statusReady")
 }
 
-function harnessIconUrl(backend: string): string | undefined {
-  const file = HARNESS_ICON_FILES[backend.toLowerCase()]
-  return file ? `${import.meta.env.BASE_URL}harness-icons/${file}` : undefined
-}
 
 function recordKey(item: RecordWithMachine): string {
   return `${item.machineID}:${item.record.key}`
@@ -340,6 +354,61 @@ function catalogProject(record: NativeSessionRecord, projects: MachineProject[],
     .sort((left, right) => normalizedPath(right.path).value.length - normalizedPath(left.path).value.length)[0]
 }
 
+/** True when any segment of the path is hidden (".claude/worktrees", ".codex-…"). */
+function hasHiddenSegment(value: string): boolean {
+  return value.split(/[\\/]+/).some((segment) => segment.startsWith(".") && segment !== "." && segment !== "..")
+}
+
+/**
+ * Compact skin's New Session Project list: the catalog plus the folders the user actually has
+ * Sessions in (only inside a configured root, so the daemon accepts them), hidden folders left out,
+ * ordered by last use with the chosen agent, then last use overall, then name.
+ */
+function projectsByRecentUse(catalog: MachineProject[], records: RecordWithMachine[], machineID: string, agentID: string): MachineProject[] {
+  const roots = catalog.filter((project) => project.configured)
+  const members = catalog.filter((project) => !project.configured)
+  const extra = new Map<string, MachineProject>()
+  const lastUse = new Map<string, number>()
+  const lastUseWithAgent = new Map<string, number>()
+  for (const item of records) {
+    const directory = item.record.session.directory || item.project?.path || ""
+    if (!directory || hasHiddenSegment(directory)) continue
+    const member = members
+      .filter((project) => pathContains(project.path, directory))
+      .sort((left, right) => right.path.length - left.path.length)[0]
+    let key: string
+    if (member) {
+      key = member.id
+    } else {
+      const root = roots.find((project) => pathContains(project.path, directory))
+      if (!root) continue
+      if (normalizedPath(root.path).value === normalizedPath(directory).value) {
+        key = root.id
+      } else {
+        key = `session-dir:${normalizedPath(directory).value}`
+        if (!extra.has(key)) {
+          extra.set(key, {
+            id: key,
+            machineId: machineID,
+            name: directory.split(/[\\/]+/).filter(Boolean).pop() || directory,
+            path: directory,
+            kind: "directory"
+          })
+        }
+      }
+    }
+    const at = item.record.session.time?.updated || item.record.session.time?.created || 0
+    lastUse.set(key, Math.max(lastUse.get(key) || 0, at))
+    if (item.record.agentId === agentID) lastUseWithAgent.set(key, Math.max(lastUseWithAgent.get(key) || 0, at))
+  }
+  return [...catalog, ...extra.values()]
+    .filter((project) => !project.name.startsWith(".") && !hasHiddenSegment(project.path))
+    .sort((left, right) =>
+      (lastUseWithAgent.get(right.id) || 0) - (lastUseWithAgent.get(left.id) || 0)
+      || (lastUse.get(right.id) || 0) - (lastUse.get(left.id) || 0)
+      || left.name.localeCompare(right.name))
+}
+
 function projectGroups(records: RecordWithMachine[]): ProjectGroup[] {
   const groups = new Map<string, ProjectGroup>()
   for (const item of records) {
@@ -414,12 +483,16 @@ export function NativeSessionHome({
   onAttentionKeysChange,
   onDiscoveredChange,
   onRefreshComplete,
-  selectedKey,
+  selectedKey: selectedKeyProp,
+  selectionOnScreen = true,
   selectedState,
   deletingKeys,
   deletedKeys,
   onDeletionSettled
 }: Props) {
+  // A Session counts as open only while it is on screen: on a phone, back on the list it is not,
+  // so its unseen mark ("Just finished") must survive until it is opened again.
+  const selectedKey = selectionOnScreen ? selectedKeyProp : undefined
   const t = useTranslator()
   const language = useLanguage()
   const [records, setRecords] = useState<RecordWithMachine[]>([])
@@ -429,6 +502,8 @@ export function NativeSessionHome({
   const [revision, setRevision] = useState(0)
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set())
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(() => new Set())
+  // Compact skin: every Project group (Recent included) starts folded; this holds the ones opened.
+  const [openedProjects, setOpenedProjects] = useState<Set<string>>(() => new Set())
   const [collapsedMachines, setCollapsedMachines] = useState<Set<string>>(() => new Set())
   const [createOpen, setCreateOpen] = useState(false)
   const [createMachineID, setCreateMachineID] = useState("")
@@ -442,9 +517,63 @@ export function NativeSessionHome({
   const olderRequests = useRef(new Set<string>())
   const [olderSessionErrors, setOlderSessionErrors] = useState<Record<string, string | undefined>>({})
   const [query, setQuery] = useState("")
+  // Compact skin: search and filters open from a magnifier in the top bar, and New Session is a
+  // "+" beside it. Both render into a slot the top bar provides; without the slot nothing moves.
+  const [searchOpen, setSearchOpen] = useState(false)
+  // The coding agents available across every online machine, one logo each. A logo filters by
+  // backend (`backend:<name>`), not by one agent id: two machines can run the same backend under
+  // different agent ids, and the first machine's id would hide the second machine's Sessions.
+  const onlineAgents = useMemo(() => {
+    const seen = new Map<string, { backend: string; label: string }>()
+    for (const source of sources) {
+      if (source.state !== "online") continue
+      for (const agent of source.snapshot?.agents ?? []) {
+        if (agent.state === "unavailable" || seen.has(agent.backend)) continue
+        seen.set(agent.backend, { backend: agent.backend, label: agent.label })
+      }
+    }
+    return [...seen.values()]
+  }, [sources])
+  const [recentsEnabled, setRecentsEnabled] = useState(loadRecentsEnabled)
+  const [compactSkin, setCompactSkin] = useState(() => activeSkin() === "compact")
+  const [hideRules, setHideRules] = useState(loadHideRules)
+  const [showHidden, setShowHidden] = useState(false)
+  useEffect(() => {
+    const sync = () => {
+      setRecentsEnabled(loadRecentsEnabled())
+      setCompactSkin(activeSkin() === "compact")
+      setHideRules(loadHideRules())
+    }
+    window.addEventListener(APP_PREFERENCES_CHANGED_EVENT, sync)
+    return () => window.removeEventListener(APP_PREFERENCES_CHANGED_EVENT, sync)
+  }, [])
+  const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    setTopbarSlot(document.getElementById("hr-topbar-home-slot"))
+  }, [])
+  useEffect(() => {
+    if (!searchOpen) return
+    document.querySelector<HTMLInputElement>(".hr-native-home-tools.search-open input[type=search]")?.focus()
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSearchOpen(false)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [searchOpen])
   const [filter, setFilter] = useState<SessionFilter>("all")
   const [machineFilter, setMachineFilter] = useState("")
   const [agentFilter, setAgentFilter] = useState("")
+  // More agents than fit beside the status tabs at phone width: show three, keep the filtered one
+  // visible, and let "+N" open the rest on a row of their own.
+  const [agentsExpanded, setAgentsExpanded] = useState(false)
+  const visibleFilterAgents = useMemo(() => {
+    if (agentsExpanded || onlineAgents.length <= FILTER_AGENT_LIMIT) return onlineAgents
+    const shown = onlineAgents.slice(0, FILTER_AGENT_LIMIT - 1)
+    const filtered = onlineAgents.find((agent) => backendFilterValue(agent.backend) === agentFilter)
+    if (filtered && !shown.includes(filtered)) shown[shown.length - 1] = filtered
+    return shown
+  }, [agentFilter, agentsExpanded, onlineAgents])
+  const hiddenFilterAgentCount = onlineAgents.length - visibleFilterAgents.length
   const [projectFilter, setProjectFilter] = useState("")
   const [modelFilter, setModelFilter] = useState("")
   const homeScrollRef = useRef<HTMLDivElement | null>(null)
@@ -681,13 +810,10 @@ export function NativeSessionHome({
     }
   }, [selectedKey, selectedFinished, clearFinished])
 
+
   const unseenKeys = useMemo<ReadonlySet<string>>(() => deletingKeys?.size
     ? new Set([...finishedKeys].filter((key) => !deletingKeys.has(key)))
     : finishedKeys, [finishedKeys, deletingKeys])
-
-  useEffect(() => {
-    onUnseenReadyCountChange?.(unseenKeys.size)
-  }, [unseenKeys, onUnseenReadyCountChange])
 
   const projectionForItem = useCallback((item: RecordWithMachine) => projectFederatedSession({
     machineID: item.machineID,
@@ -699,7 +825,28 @@ export function NativeSessionHome({
     projectPath: item.project?.path
   }, liveStateForItem(item)), [liveStateForItem])
 
-  const groups = useMemo(() => projectGroups(records), [records])
+  // Compact skin: Sessions whose title matches a hide pattern (helper agents, reviewers, bots) leave
+  // the list, its counters and Recent unless the user asks to see them.
+  const hideActive = compactSkin && hideRules.enabled && hideRules.rules.length > 0
+  const hiddenKeys = useMemo(() => hideActive
+    ? new Set(records.filter((item) => titleMatchesHideRules(item.record.session.title || "", hideRules.rules)).map(recordKey))
+    : new Set<string>(), [hideActive, hideRules.rules, records])
+  const shownRecords = useMemo(
+    () => hiddenKeys.size && !showHidden ? records.filter((item) => !hiddenKeys.has(recordKey(item))) : records,
+    [hiddenKeys, records, showHidden]
+  )
+  const hiddenCount = hiddenKeys.size
+  // Hidden Sessions keep their unseen mark in `unseenKeys` for when they are shown again; only
+  // the published count (window title / global counter) excludes them while they are hidden.
+  const visibleUnseenCount = useMemo(
+    () => countVisibleFinishedKeys(unseenKeys, hiddenKeys, showHidden),
+    [hiddenKeys, showHidden, unseenKeys]
+  )
+  useEffect(() => {
+    onUnseenReadyCountChange?.(visibleUnseenCount)
+  }, [onUnseenReadyCountChange, visibleUnseenCount])
+
+  const groups = useMemo(() => projectGroups(shownRecords), [shownRecords])
 
   useEffect(() => {
     if (!selectedKey) return
@@ -711,6 +858,12 @@ export function NativeSessionHome({
       if (!current.has(selectedGroup.key)) return current
       const next = new Set(current)
       next.delete(selectedGroup.key)
+      return next
+    })
+    setOpenedProjects((current) => {
+      if (current.has(selectedGroup.key)) return current
+      const next = new Set(current)
+      next.add(selectedGroup.key)
       return next
     })
     setCollapsedMachines((current) => {
@@ -742,12 +895,12 @@ export function NativeSessionHome({
   const machineChoices = useMemo(() => sources.map(({ machine, snapshot }) => ({
     id: machine.id,
     label: snapshot?.machine.name || machine.name,
-    count: records.filter((item) => item.machine.id === machine.id).length
-  })), [records, sources])
+    count: shownRecords.filter((item) => item.machine.id === machine.id).length
+  })), [shownRecords, sources])
 
   const machineScopedRecords = useMemo(
-    () => machineFilter ? records.filter((item) => item.machine.id === machineFilter) : records,
-    [machineFilter, records]
+    () => machineFilter ? shownRecords.filter((item) => item.machine.id === machineFilter) : shownRecords,
+    [machineFilter, shownRecords]
   )
 
   const agentChoices = useMemo(() => {
@@ -765,11 +918,11 @@ export function NativeSessionHome({
   }, [machineScopedRecords])
 
   useEffect(() => {
-    if (agentFilter && !agentChoices.some((choice) => choice.id === agentFilter)) setAgentFilter("")
+    if (agentFilter && !isBackendFilter(agentFilter) && !agentChoices.some((choice) => choice.id === agentFilter)) setAgentFilter("")
   }, [agentChoices, agentFilter])
 
   const agentScopedRecords = useMemo(
-    () => agentFilter ? machineScopedRecords.filter((item) => item.record.agentId === agentFilter) : machineScopedRecords,
+    () => agentFilter ? machineScopedRecords.filter((item) => matchesAgentFilter(agentFilter, item.record.agentId, item.record.backend)) : machineScopedRecords,
     [agentFilter, machineScopedRecords]
   )
 
@@ -861,7 +1014,7 @@ export function NativeSessionHome({
     const sessions = group.sessions.filter((item) => {
       const projection = projectionForItem(item)
       if (machineFilter && item.machine.id !== machineFilter) return false
-      if (agentFilter && item.record.agentId !== agentFilter) return false
+      if (agentFilter && !matchesAgentFilter(agentFilter, item.record.agentId, item.record.backend)) return false
       if (projectFilter && projection.projectKey !== projectFilter) return false
       if (modelFilter && projection.modelKey !== modelFilter) return false
       if (filter !== "all" && projection.bucket !== filter) return false
@@ -873,15 +1026,28 @@ export function NativeSessionHome({
   const machineGroups = useMemo(() => sources
     .filter(({ machine }) => !machineFilter || machine.id === machineFilter)
     .flatMap(({ machine, snapshot, state, error }) => {
-      const projects = filteredGroups.filter((group) => group.machine.id === machine.id)
+      const machineProjects = filteredGroups.filter((group) => group.machine.id === machine.id)
+      // Compact skin: the folders being worked on come first.
+      const projects = compactSkin ? [...machineProjects].sort((left, right) => right.updatedAt - left.updatedAt) : machineProjects
       const filtering = Boolean(query.trim() || agentFilter || projectFilter || modelFilter || filter !== "all")
       if (!projects.length && filtering) return []
+      // While searching or filtering the Recent group would only repeat the results below it.
+      const recent = compactSkin && recentsEnabled && !filtering
+        ? projects
+          .flatMap((group) => group.sessions)
+          .map((item) => ({ item, at: item.record.session.time?.updated || item.record.session.time?.created || 0 }))
+          .sort((left, right) => right.at - left.at)
+          .slice(0, RECENT_GROUP_SIZE)
+        : []
+      const recentGroup: ProjectGroup | null = recent.length
+        ? { key: `${machine.id}\u0000recent`, machine, name: t("sf.recentGroup"), directory: "", sessions: recent.map(({ item }) => item), updatedAt: recent[0].at, recent: true }
+        : null
       return [{
         machine,
         label: snapshot?.machine.name || machine.name,
         state,
         error,
-        projects,
+        projects: recentGroup ? [recentGroup, ...projects] : projects,
         sessionCount: projects.reduce((count, group) => count + group.sessions.length, 0),
         workingCount: projects.reduce((count, group) =>
           count + group.sessions.filter((item) => projectionForItem(item).bucket === "active").length, 0),
@@ -891,12 +1057,12 @@ export function NativeSessionHome({
           count + group.sessions.filter((item) => unseenKeys.has(recordKey(item))).length, 0),
         updatedAt: projects.reduce((latest, group) => Math.max(latest, group.updatedAt), 0)
       }]
-    }), [agentFilter, filter, filteredGroups, machineFilter, modelFilter, projectFilter, projectionForItem, query, sources, unseenKeys])
+    }), [agentFilter, compactSkin, filter, filteredGroups, machineFilter, modelFilter, projectFilter, projectionForItem, query, recentsEnabled, sources, t, unseenKeys])
 
   const olderPageTargets = [...pageCache.current.entries()].filter(([, entry]) =>
     entry.nextCursor
     && (!machineFilter || entry.machine.id === machineFilter)
-    && (!agentFilter || entry.agent.id === agentFilter)
+    && (!agentFilter || matchesAgentFilter(agentFilter, entry.agent.id, entry.agent.backend))
   )
 
   async function loadOlderSessions(machineID: string) {
@@ -960,13 +1126,27 @@ export function NativeSessionHome({
   const selectedCreateMachine = createMachines.find(({ machine }) => machine.id === createMachineID) || createMachines[0]
   const createProjects = useMemo<CreateProject[]>(() => {
     if (!selectedCreateMachine) return []
-    return (projectsByMachine[selectedCreateMachine.machine.id] || []).map((project) => ({
-      key: `${selectedCreateMachine.machine.id}:${project.id}`,
+    const machineID = selectedCreateMachine.machine.id
+    const catalog = projectsByMachine[machineID] || []
+    const projects = compactSkin ? projectsByRecentUse(catalog, records.filter((item) => item.machine.id === machineID), machineID, createAgentID) : catalog
+    return projects.map((project) => ({
+      key: `${machineID}:${project.id}`,
       machine: selectedCreateMachine.machine,
       snapshot: selectedCreateMachine.snapshot,
       project
     }))
-  }, [projectsByMachine, selectedCreateMachine])
+  }, [compactSkin, createAgentID, projectsByMachine, records, selectedCreateMachine])
+  // Compact skin: until the Project is picked by hand, the default follows the chosen agent.
+  const createProjectTouched = useRef(false)
+  useEffect(() => {
+    if (!createOpen) createProjectTouched.current = false
+  }, [createOpen])
+  useEffect(() => {
+    if (!createOpen || !compactSkin || createProjectTouched.current) return
+    setCreateProjectKey(createProjects[0]?.key || "")
+    // Only an agent change should move the default; list refreshes keep the current choice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createAgentID, createOpen, compactSkin])
   const selectedCreateProject = createProjects.find((choice) => choice.key === createProjectKey) || createProjects[0]
   const createAgents = selectedCreateMachine ? nativeCreateAgents(selectedCreateMachine.snapshot) : []
   const selectedCreateAgent = createAgents.find((agent) => agent.id === createAgentID) || createAgents[0]
@@ -1003,7 +1183,8 @@ export function NativeSessionHome({
   }
 
   function toggleProjectCollapsed(groupKey: string) {
-    setCollapsedProjects((current) => {
+    const setter = compactSkin ? setOpenedProjects : setCollapsedProjects
+    setter((current) => {
       const next = new Set(current)
       if (next.has(groupKey)) next.delete(groupKey)
       else next.add(groupKey)
@@ -1084,6 +1265,34 @@ export function NativeSessionHome({
 
   return (
     <section className="hr-native-home" aria-label="Sessions" aria-busy={!loaded || undefined}>
+      {topbarSlot ? createPortal(
+        <>
+          {records.length > 0 ? (
+            <button
+              type="button"
+              className={`tdw-icon-button hr-topbar-search hr-topbar-home-action${searchOpen || query ? " active" : ""}`}
+              onClick={() => setSearchOpen((open) => !open)}
+              aria-label={t("sf.searchSessionsLabel")}
+              aria-expanded={searchOpen}
+              title={t("sf.searchSessionsLabel")}
+            >
+              <SearchIcon size={16} />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="tdw-icon-button hr-topbar-new-session hr-topbar-home-action"
+            onClick={openCreatePanel}
+            aria-label={t("sf.newSession")}
+            title={t("sf.newSession")}
+            disabled={!loaded || createMachines.length === 0}
+          >
+            <PlusIcon size={18} />
+          </button>
+        </>,
+        topbarSlot
+      ) : null}
+      {searchOpen ? <button type="button" className="hr-native-search-backdrop" aria-label={t("action.close")} onClick={() => setSearchOpen(false)} /> : null}
       <div className="hr-native-home-controls">
         <div className="hr-native-home-heading">
           <div>
@@ -1106,7 +1315,7 @@ export function NativeSessionHome({
         </div>
 
         {records.length > 0 ? (
-          <div className="hr-native-home-tools">
+          <div className={`hr-native-home-tools${searchOpen ? " search-open" : ""}`}>
             <label className="hr-native-session-search">
               <SearchIcon size={14} />
               <input
@@ -1117,23 +1326,62 @@ export function NativeSessionHome({
                 aria-label={t("sf.searchSessionsLabel")}
               />
             </label>
+            {hiddenCount ? (
+              <button type="button" className={`hr-native-hidden-toggle${showHidden ? " active" : ""}`} onClick={() => setShowHidden((value) => !value)} aria-pressed={showHidden}>
+                {showHidden ? t("sf.hideHidden", { count: hiddenCount }) : t("sf.showHidden", { count: hiddenCount })}
+              </button>
+            ) : null}
             <div className="hr-native-session-filters" role="group" aria-label={t("sf.filterSessions")}>
               <button type="button" className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")} aria-pressed={filter === "all"}>
-                <span>{t("sf.filterAll")}</span> <b>{scopedRecords.length}</b>
+                <i className="hr-filter-icon all" aria-hidden="true" /><span>{t("sf.filterAll")}</span> <b>{scopedRecords.length}</b>
               </button>
               <button type="button" className={filter === "active" ? "active" : ""} onClick={() => setFilter("active")} aria-pressed={filter === "active"}>
-                <span>{t("sf.filterLive")}</span> <b>{activeCount}</b>
+                <i className="hr-filter-icon live" aria-hidden="true" /><span>{t("sf.filterLive")}</span> <b>{activeCount}</b>
               </button>
               <button type="button" className={filter === "attention" ? "active" : ""} onClick={() => setFilter("attention")} aria-pressed={filter === "attention"}>
-                <span>{t("sf.filterAttention")}</span> <b>{attentionCount}</b>
+                <i className={`hr-filter-icon attention${attentionCount ? " alert" : ""}`} aria-hidden="true" /><span>{t("sf.filterAttention")}</span> <b>{attentionCount}</b>
               </button>
+              {onlineAgents.length ? (
+                <span className={`hr-filter-agents${agentFilter ? " filtering" : ""}${agentsExpanded ? " expanded" : ""}`} role="group" aria-label={t("sf.filterByAgent")}>
+                  {visibleFilterAgents.map((agent, index) => {
+                    const selected = agentFilter === backendFilterValue(agent.backend)
+                    return (
+                      <button
+                        type="button"
+                        key={agent.backend}
+                        className={selected ? "selected" : undefined}
+                        style={{ animationDelay: `${index * 0.35}s` }}
+                        onClick={() => setAgentFilter(selected ? "" : backendFilterValue(agent.backend))}
+                        aria-pressed={selected}
+                        aria-label={agent.label}
+                        title={agent.label}
+                      >
+                        {harnessIconUrl(agent.backend)
+                          ? <img src={harnessIconUrl(agent.backend)} alt="" />
+                          : <b>{agent.label.slice(0, 2).toUpperCase()}</b>}
+                      </button>
+                    )
+                  })}
+                  {hiddenFilterAgentCount || agentsExpanded ? (
+                    <button
+                      type="button"
+                      className="hr-filter-agents-more"
+                      onClick={() => setAgentsExpanded((open) => !open)}
+                      aria-expanded={agentsExpanded}
+                      aria-label={agentsExpanded ? t("sf.showFewerAgents") : t("sf.showAllAgents", { count: onlineAgents.length })}
+                    >
+                      {agentsExpanded ? "−" : `+${hiddenFilterAgentCount}`}
+                    </button>
+                  ) : null}
+                </span>
+              ) : null}
             </div>
             <div className="hr-native-session-scopes">
               {sources.length > 1 ? (
                 <label className="hr-native-scope">
                   <ServerIcon size={13} />
                   <select value={machineFilter} onChange={(event) => setMachineFilter(event.target.value)} aria-label={t("sf.filterByMachine")}>
-                    <option value="">{t("sf.allMachinesCount", { count: records.length })}</option>
+                    <option value="">{t("sf.allMachinesCount", { count: shownRecords.length })}</option>
                     {machineChoices.map((choice) => <option value={choice.id} key={choice.id}>{choice.label} · {choice.count}</option>)}
                   </select>
                   <ChevronDownIcon size={12} />
@@ -1193,6 +1441,7 @@ export function NativeSessionHome({
 
       </div>
       <div className="hr-native-home-scroll" ref={homeScrollRef}>
+        {createOpen ? <button type="button" className="hr-native-create-backdrop" aria-label={t("sf.closeNewSession")} onClick={() => !creating && setCreateOpen(false)} /> : null}
         {createOpen ? (
           <div className="hr-native-create-panel" role="group" aria-label={t("sf.createNativeSession")}>
             <div className="hr-native-create-heading">
@@ -1217,16 +1466,42 @@ export function NativeSessionHome({
             </label>
             <label>
               <span>{t("sf.project")}</span>
-              <select value={selectedCreateProject?.key || ""} onChange={(event) => { setCreateProjectKey(event.target.value); setCreateError(null) }} disabled={creating || createProjects.length === 0}>
+              <select value={selectedCreateProject?.key || ""} onChange={(event) => { createProjectTouched.current = true; setCreateProjectKey(event.target.value); setCreateError(null) }} disabled={creating || createProjects.length === 0}>
                 {createProjects.map((choice) => <option value={choice.key} key={choice.key}>{choice.project.name}</option>)}
               </select>
             </label>
-            <label>
-              <span>{t("sf.codingAgent")}</span>
-              <select value={selectedCreateAgent?.id || ""} onChange={(event) => { setCreateAgentID(event.target.value); setCreateError(null) }} disabled={creating || createAgents.length === 0}>
-                {createAgents.map((agent) => <option value={agent.id} key={agent.id}>{agent.label || agent.id}</option>)}
-              </select>
-            </label>
+            {compactSkin ? (
+              <div className="hr-native-create-agents-field">
+                <span>{t("sf.codingAgent")}</span>
+                <div className="hr-create-agents" role="radiogroup" aria-label={t("sf.codingAgent")}>
+                  {createAgents.map((agent, index) => {
+                    const selected = agent.id === selectedCreateAgent?.id
+                    return (
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        key={agent.id}
+                        className={selected ? "selected" : undefined}
+                        style={{ animationDelay: `${index * 0.35}s` }}
+                        disabled={creating}
+                        onClick={() => { setCreateAgentID(agent.id); setCreateError(null) }}
+                      >
+                        <i>{harnessIconUrl(agent.backend) ? <img src={harnessIconUrl(agent.backend)} alt="" /> : <b>{(agent.label || agent.id).slice(0, 2).toUpperCase()}</b>}</i>
+                        <small>{agent.label || agent.id}</small>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : (
+              <label>
+                <span>{t("sf.codingAgent")}</span>
+                <select value={selectedCreateAgent?.id || ""} onChange={(event) => { setCreateAgentID(event.target.value); setCreateError(null) }} disabled={creating || createAgents.length === 0}>
+                  {createAgents.map((agent) => <option value={agent.id} key={agent.id}>{agent.label || agent.id}</option>)}
+                </select>
+              </label>
+            )}
             <label className="hr-native-create-title">
               <span>{t("sf.title")} <small>{t("sf.optional")}</small></span>
               <input value={createTitle} onChange={(event) => setCreateTitle(event.target.value)} disabled={creating} placeholder={t("sf.newAgentSession", { agent: selectedCreateAgent?.label || selectedCreateAgent?.id || "native" })} maxLength={200} />
@@ -1297,13 +1572,14 @@ export function NativeSessionHome({
 
                     {projects.map((group) => {
                       const expanded = expandedProjects.has(group.key)
-                      const collapsed = collapsedProjects.has(group.key)
+                      const collapsed = compactSkin ? !openedProjects.has(group.key) : collapsedProjects.has(group.key)
                       const treeRows = sessionTreeRows(group.sessions)
                       const visibleRows = expanded ? treeRows : treeRows.slice(0, COLLAPSED_PROJECT_SESSION_COUNT)
                       const hiddenCount = Math.max(0, treeRows.length - COLLAPSED_PROJECT_SESSION_COUNT)
                       const projectUnseen = group.sessions.filter((item) => unseenKeys.has(recordKey(item))).length
+                      const projectWorking = group.sessions.some((item) => projectionForItem(item).bucket === "active")
                       return (
-                        <section className={`hr-native-project-group${collapsed ? " collapsed" : ""}`} key={group.key} aria-label={t("sf.groupSessions", { name: group.name })}>
+                        <section className={`hr-native-project-group${collapsed ? " collapsed" : ""}${group.recent ? " recent" : ""}`} key={group.key} aria-label={t("sf.groupSessions", { name: group.name })}>
                           <button
                             type="button"
                             className="hr-native-project-heading"
@@ -1313,9 +1589,9 @@ export function NativeSessionHome({
                           >
                             <span>
                               <strong>{group.name}</strong>
-                              <small title={group.directory}>{group.directory || t("sf.noWorkingDirectory")}</small>
+                              <small title={group.directory}>{group.recent ? t("sf.recentGroupHint") : group.directory || t("sf.noWorkingDirectory")}</small>
                             </span>
-                            <span>{projectUnseen ? <em className="hr-native-project-ready" title={t("sf.readyCount", { count: projectUnseen })}>{projectUnseen}</em> : null}<b>{group.sessions.length}</b><i className="hr-native-project-chevron" aria-hidden="true"><ChevronDownIcon size={13} /></i></span>
+                            <span>{projectWorking ? <i className="hr-native-project-live" aria-hidden="true" /> : null}{projectUnseen ? <em className="hr-native-project-ready" title={t("sf.readyCount", { count: projectUnseen })}>{projectUnseen}</em> : null}<b>{group.sessions.length}</b><i className="hr-native-project-chevron" aria-hidden="true"><ChevronDownIcon size={13} /></i></span>
                           </button>
                           {!collapsed ? (
                             <>
@@ -1342,12 +1618,19 @@ export function NativeSessionHome({
                                   const targetKey = recordKey(item)
                                   const selected = targetKey === selectedKey
                                   const unseen = unseenKeys.has(targetKey)
+                                  // Mahurley "Just finished" is the project's own unseen mark: set only when the rail
+                                  // sees a turn end, cleared by opening the Session. No timestamp is involved, because a
+                                  // harness can rewrite a transcript (titles, relocations) without a new turn.
+                                  const rowState = compactSkin && status.state === "ready" && projection.bucket !== "failed" && unseen
+                                    ? "fresh"
+                                    : status.state
+                                  const rowLabel = rowState === "fresh" ? t("sf.statusFresh") : operationalLabel
                                   const deleting = Boolean(deletingKeys?.has(targetKey))
                                   return (
                                     <button
                                       type="button"
                                       ref={selected ? selectedRowRef : undefined}
-                                      className={`hr-native-session-row ${status.state}${selected ? " selected" : ""}${unseen ? " unseen" : ""}${deleting ? " deleting" : ""}${depth ? " child" : ""}`}
+                                      className={`hr-native-session-row ${rowState}${selected ? " selected" : ""}${unseen ? " unseen" : ""}${deleting ? " deleting" : ""}${depth ? " child" : ""}`}
                                       data-depth={Math.min(depth, 3)}
                                       key={targetKey}
                                       onClick={() => {
@@ -1369,12 +1652,14 @@ export function NativeSessionHome({
                                     >
                                       <span className="hr-native-session-harness" aria-hidden="true">
                                         {icon ? <img src={icon} alt="" /> : <b>{item.record.agentLabel.slice(0, 2).toUpperCase()}</b>}
-                                        <i data-state={status.state} />
+                                        <i data-state={rowState} />
                                       </span>
                                       <span className="hr-native-session-copy">
                                         <strong>{title}</strong>
                                         <small>
-                                          <span>{item.record.agentLabel}{nativeAgent ? ` · ${nativeAgent}` : ""}{item.record.session.external === true ? ` · ${t("sf.external")}` : ""}</span>
+                                          {compactSkin
+                                            ? <span><span className="hr-native-session-agent-label">{item.record.agentLabel}</span>{nativeAgent ? <span className="hr-native-session-extra">{nativeAgent}</span> : null}{item.record.session.external === true ? <span className="hr-native-session-extra">{t("sf.external")}</span> : null}</span>
+                                            : <span>{item.record.agentLabel}{nativeAgent ? ` · ${nativeAgent}` : ""}{item.record.session.external === true ? ` · ${t("sf.external")}` : ""}</span>}
                                           {restrictionCount ? <span className="hr-native-session-policy">{t("sf.restrictedCount", { count: restrictionCount })}</span> : null}
                                           {depth ? <span className="hr-native-session-child-label">{t("sf.childSession")}</span> : null}
                                           {hasChanges ? (
@@ -1387,8 +1672,8 @@ export function NativeSessionHome({
                                         </small>
                                       </span>
                                       <span className="hr-native-session-meta">
-                                        <span className="hr-native-session-status" data-state={deleting ? "deleting" : status.state} aria-live={selected || deleting ? "polite" : undefined}>
-                                          {deleting ? <><LoadingIcon size={12} /> {t("sf.deleting")}</> : <>{unseen ? "✓ " : ""}{operationalLabel}</>}
+                                        <span className="hr-native-session-status" data-state={deleting ? "deleting" : rowState} aria-live={selected || deleting ? "polite" : undefined}>
+                                          {deleting ? <><LoadingIcon size={12} /> {t("sf.deleting")}</> : <>{unseen && rowState !== "fresh" ? "✓ " : ""}{rowLabel}</>}
                                         </span>
                                         {deleting ? null : (
                                           <time dateTime={timestamp ? new Date(timestamp).toISOString() : undefined} title={timestamp ? new Date(timestamp).toLocaleString() : undefined}>
@@ -1407,7 +1692,8 @@ export function NativeSessionHome({
                                   onClick={() => toggleProject(group.key)}
                                   aria-expanded={expanded}
                                 >
-                                  {expanded ? t("sf.showLess") : t("sf.showMore", { count: hiddenCount })}
+                                  <span>{expanded ? t("sf.showLess") : t("sf.showMore", { count: hiddenCount })}</span>
+                                  <ChevronDownIcon size={14} className="hr-native-project-more-icon" />
                                 </button>
                               ) : null}
                             </>

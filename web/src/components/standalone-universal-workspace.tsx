@@ -8,14 +8,24 @@ import {
 } from "../activity-preferences"
 import { Capacitor } from "@capacitor/core"
 import {
+  activeSkin,
+  isSkinPreference,
   isThemePreference,
   loadLanguage,
+  loadHideRules,
+  loadRecentsEnabled,
+  loadSkinPreference,
   loadThemePreference,
   persistLanguage,
+  persistHideRules,
+  persistRecentsEnabled,
+  persistSkinPreference,
   persistThemePreference,
+  type SkinPreference,
   type ThemePreference
 } from "../appPreferences"
-import { ChatIcon, LoadingIcon, RefreshIcon, ServerIcon, SettingsIcon } from "../Icons"
+import { ChatIcon, LoadingIcon, PencilIcon, PhoneIcon, RefreshIcon, SearchIcon, ServerIcon, SettingsIcon, TrashIcon } from "../Icons"
+import { harnessIconUrl } from "../harness-icons"
 import { createTranslator, languageOptions, type LanguageCode, type Translator } from "../i18n"
 import { chooseDesktopProjectFolder, desktopNetworkSettings, desktopProjectRoots, desktopUpdateStatus, openDesktopUpdate, setDesktopNetworkSettings, setDesktopProjectRoots } from "../desktopBridge"
 import type { DesktopUpdateStatus } from "../../electron/ipc-contract"
@@ -67,6 +77,8 @@ import "../taskdesk-mobile-navigation.css"
 import "../taskdesk-focus-layout.css"
 import "../conversation-control-plane.css"
 import "../machine-manager-health.css"
+import { AboutSection, SkinGalleryModal } from "./about-section"
+import { SKINS } from "../skins"
 
 /** The 2.x shell persisted its sidebar width and this one did not, so a large monitor got the same
  *  rail as a laptop. Its own key: the two shells have different rails and different defaults. */
@@ -281,7 +293,7 @@ function MachineEditor({ machine, onCancel, onSave, onFoldersSaved, onBusyChange
   }
 
   return (
-    <form className="uw-machine-editor" ref={formRef} tabIndex={-1} aria-label={t("machine.editorLabel")} aria-busy={busy} onSubmit={(event) => { event.preventDefault(); void save() }}>
+    <form className={`uw-machine-editor${testResult ? testResult.ok ? " test-ok" : " test-fail" : ""}`} ref={formRef} tabIndex={-1} aria-label={t("machine.editorLabel")} aria-busy={busy} onSubmit={(event) => { event.preventDefault(); void save() }}>
       <div className="uw-machine-editor-grid">
         <label><span>{t("sf.fieldName")}</span><input value={runtimeOwned ? t("settings.thisComputer") : name} onChange={(event) => setName(event.target.value)} readOnly={runtimeOwned} disabled={busy} placeholder={t("sf.machineNamePlaceholder")} /></label>
         <label><span>{t("sf.fieldHost")}</span><input value={host} onChange={(event) => setHost(event.target.value)} readOnly={runtimeOwned} disabled={busy || testing} placeholder="192.168.1.20 or localhost" spellCheck={false} autoCapitalize="none" autoCorrect="off" /></label>
@@ -315,7 +327,7 @@ function MachineEditor({ machine, onCancel, onSave, onFoldersSaved, onBusyChange
       {testResult ? <div className={`uw-machine-test-result ${testResult.ok ? "ok" : "error"}`} role="status">{testResult.text}</div> : null}
       <div className="uw-machine-editor-actions">
         <button type="button" className="uw-manager-button" disabled={busy} onClick={onCancel}>{t("sf.cancel")}</button>
-        {!runtimeOwned ? <button type="button" className="uw-manager-button" data-machine-test disabled={!valid || testing || busy} onClick={() => void testConnection()}>{testing ? t("sf.testing") : t("sf.testConnection")}</button> : null}
+        {!runtimeOwned ? <button type="button" className="uw-manager-button" data-machine-test disabled={!valid || testing || busy} onClick={() => void testConnection()}>{testing ? t("sf.testing") : testResult?.ok ? t("sf.connectedShort") : t("sf.testConnection")}</button> : null}
         <button type="submit" className="uw-manager-button primary" disabled={!valid || busy || (runtimeOwned && (folders.status !== "ready" || !rootsChanged || Boolean(folders.environmentOverride)))}>{saving ? t("machine.saving") : t("sf.saveMachine")}</button>
       </div>
     </form>
@@ -342,6 +354,17 @@ function MachineManager({
   pairingSuccessMachineName?: string | null
 }) {
   const t = useTranslator()
+  // Compact skin: the top bar's magnifier searches machines while this page is open.
+  const [machineSearchOpen, setMachineSearchOpen] = useState(false)
+  const [machineQuery, setMachineQuery] = useState("")
+  const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    setTopbarSlot(document.getElementById("hr-topbar-home-slot"))
+  }, [])
+  const machineNeedle = machineQuery.trim().toLowerCase()
+  const visibleMachines = machineNeedle
+    ? machines.filter((machine) => `${machine.name} ${machine.config.host}:${machine.config.port}`.toLowerCase().includes(machineNeedle))
+    : machines
   // Opening Machines is for inspecting the machines you already have. Creating another one is an
   // explicit action, so an asynchronously discovered machine can never leave a stale blank editor
   // open (desktop local runtime, QR pairing, or any future machine source all follow the same rule).
@@ -482,7 +505,34 @@ function MachineManager({
               </div>
             </div>
           ) : null}
-          {machines.map((machine) => {
+          {machineSearchOpen ? (
+            <label className="hr-machine-search">
+              <SearchIcon size={14} />
+              <input
+                type="search"
+                autoFocus
+                value={machineQuery}
+                onChange={(event) => setMachineQuery(event.target.value)}
+                onKeyDown={(event) => { if (event.key === "Escape") { setMachineQuery(""); setMachineSearchOpen(false) } }}
+                placeholder={t("sf.searchMachines")}
+                aria-label={t("sf.searchMachines")}
+              />
+            </label>
+          ) : null}
+          {topbarSlot ? createPortal(
+            <button
+              type="button"
+              className={`tdw-icon-button hr-topbar-search hr-topbar-machine-search${machineSearchOpen || machineQuery ? " active" : ""}`}
+              onClick={() => setMachineSearchOpen((open) => !open)}
+              aria-label={t("sf.searchMachines")}
+              aria-expanded={machineSearchOpen}
+              title={t("sf.searchMachines")}
+            >
+              <SearchIcon size={16} />
+            </button>,
+            topbarSlot
+          ) : null}
+          {visibleMachines.map((machine) => {
             const check = health[machine.id]
             const state = check?.state || "checking"
             const snapshot = check?.snapshot
@@ -514,7 +564,7 @@ function MachineManager({
                       {error ? machineConnectionErrorText(error, t) : t("sf.notADaemon")}
                     </small>
                   ) : null}
-                  {snapshot?.agents.length ? <div className="uw-machine-harness-list">{snapshot.agents.map((agent) => <span className="uw-machine-harness" key={agent.id}><i className={agent.state} aria-hidden="true" /><strong>{agent.label}</strong><small>{machineAgentStateLabel(agent.state, t)}{agent.processID ? ` · PID ${agent.processID}` : ""}</small></span>)}</div> : null}
+                  {snapshot?.agents.length ? <div className="uw-machine-harness-list">{snapshot.agents.map((agent) => <span className="uw-machine-harness" key={agent.id}><i className={agent.state} aria-hidden="true" />{harnessIconUrl(agent.backend) ? <img className="uw-machine-harness-icon" src={harnessIconUrl(agent.backend)} alt="" /> : null}<strong>{agent.label}</strong><small>{machineAgentStateLabel(agent.state, t)}{agent.processID ? ` · PID ${agent.processID}` : ""}</small></span>)}</div> : null}
                   <MachineFolderSummary folders={machineFolders[machine.id]} />
                 </div>
                 <div className="uw-machine-config-actions">
@@ -527,11 +577,11 @@ function MachineManager({
                   ) : (
                     <>
                       {state === "offline" ? <button type="button" className="uw-manager-button" data-machine-retry onClick={() => probeMachine(machine)}>{t("sf.retry")}</button> : null}
-                      <button type="button" className="uw-manager-button" data-machine-pair-phone onClick={() => setPairingMachineID(machine.id)}>{t("pair.action")}</button>
-                      <button type="button" className="uw-manager-button" data-machine-edit onClick={() => { setCompletionMachineName(null); setEditingMachine(machine); setEditingID(machine.id) }}>{t("sf.edit")}</button>
+                      <button type="button" className="uw-manager-button" data-machine-pair-phone onClick={() => setPairingMachineID(machine.id)} title={t("pair.action")}><PhoneIcon size={15} className="uw-button-icon" /><span className="uw-button-text">{t("pair.action")}</span></button>
+                      <button type="button" className="uw-manager-button" data-machine-edit onClick={() => { setCompletionMachineName(null); setEditingMachine(machine); setEditingID(machine.id) }} title={t("sf.edit")}><PencilIcon size={15} className="uw-button-icon" /><span className="uw-button-text">{t("sf.edit")}</span></button>
                       {!runtimeOwned ? (
                         <>
-                          <button type="button" className="uw-manager-button danger" onClick={() => setConfirmRemoveID(machine.id)}>{t("sf.remove")}</button>
+                          <button type="button" className="uw-manager-button danger" onClick={() => setConfirmRemoveID(machine.id)} title={t("sf.remove")}><TrashIcon size={15} className="uw-button-icon" /><span className="uw-button-text">{t("sf.remove")}</span></button>
                         </>
                       ) : null}
                     </>
@@ -568,6 +618,43 @@ function MachineManager({
 function MobileSettingsPage({ onClose }: { onClose: () => void }) {
   const [language, setLanguage] = useState<LanguageCode>(loadLanguage)
   const [theme, setTheme] = useState<ThemePreference>(loadThemePreference)
+  const [skin, setSkin] = useState<SkinPreference>(loadSkinPreference)
+  const [recents, setRecents] = useState(loadRecentsEnabled)
+  const [hideRules, setHideRules] = useState(loadHideRules)
+  const [newRuleText, setNewRuleText] = useState("")
+  const [rulesModalOpen, setRulesModalOpen] = useState(false)
+  const [skinGalleryOpen, setSkinGalleryOpen] = useState(false)
+  const [editingRuleIndex, setEditingRuleIndex] = useState<number | null>(null)
+  function resetRuleForm() {
+    setEditingRuleIndex(null)
+    setNewRuleText("")
+  }
+  function startEditingRule(index: number) {
+    const rule = hideRules.rules[index]
+    if (rule === undefined) return
+    setEditingRuleIndex(index)
+    setNewRuleText(rule)
+  }
+  function changeHideRules(next: { enabled?: boolean; rules?: string[] }) {
+    const rules = { enabled: next.enabled ?? hideRules.enabled, rules: next.rules ?? hideRules.rules }
+    setHideRules(rules)
+    persistHideRules(rules)
+  }
+  function addHideRule() {
+    const text = newRuleText.trim()
+    if (!text) return
+    changeHideRules({
+      rules: editingRuleIndex === null
+        ? [...hideRules.rules, text]
+        : hideRules.rules.map((current, index) => index === editingRuleIndex ? text : current)
+    })
+    resetRuleForm()
+  }
+  function removeHideRule(index: number) {
+    changeHideRules({ rules: hideRules.rules.filter((_, position) => position !== index) })
+    if (editingRuleIndex === index) resetRuleForm()
+    else if (editingRuleIndex !== null && index < editingRuleIndex) setEditingRuleIndex(editingRuleIndex - 1)
+  }
   const [activity, setActivity] = useState<ActivityPreferences>(loadActivityPreferences)
   // The local daemon's network exposure is an app-level setting: only the desktop shell has an
   // embedded runtime to configure, so a missing bridge hides the section instead of explaining it.
@@ -630,6 +717,12 @@ function MobileSettingsPage({ onClose }: { onClose: () => void }) {
     persistActivityPreferences(next)
   }
 
+  function changeSkin(value: string) {
+    if (!isSkinPreference(value)) return
+    setSkin(value)
+    persistSkinPreference(value)
+  }
+
   function changeTheme(value: string) {
     if (!isThemePreference(value)) return
     setTheme(value)
@@ -646,17 +739,71 @@ function MobileSettingsPage({ onClose }: { onClose: () => void }) {
         <div className="hr-mobile-settings-body">
           <div className="hr-mobile-settings-group">
             <span>{t("sf.interface")}</span>
-            <label><strong>{t("settings.theme")}</strong><select value={theme} onChange={(event) => changeTheme(event.target.value)}><option value="system">{t("settings.themeSystem")}</option><option value="light">{t("settings.themeLight")}</option><option value="dark">{t("settings.themeDark")}</option></select></label>
-            <label><strong>{t("settings.language")}</strong><select value={language} onChange={(event) => changeLanguage(event.target.value)}>{languageOptions.map((option) => <option value={option.code} key={option.code}>{option.label}</option>)}</select></label>
+            <label data-icon="theme"><strong>{t("settings.theme")}</strong><select value={theme} onChange={(event) => changeTheme(event.target.value)}><option value="system">{t("settings.themeSystem")}</option><option value="light">{t("settings.themeLight")}</option><option value="dark">{t("settings.themeDark")}</option></select></label>
+            <button type="button" className="hr-settings-row-button" data-icon="skin" onClick={() => setSkinGalleryOpen(true)}>
+              <strong>{t("settings.skin")}</strong>
+              <span>{t(SKINS.find((option) => option.id === skin)?.nameKey ?? "settings.skinClassic")} ›</span>
+            </button>
+            {skinGalleryOpen ? <SkinGalleryModal t={t} skin={skin} onSkinChange={changeSkin} onClose={() => setSkinGalleryOpen(false)} /> : null}
+            {activeSkin(skin) === "compact" ? (
+              <>
+              <label data-icon="recents"><strong>{t("settings.recents")}</strong><select value={recents ? "on" : "off"} onChange={(event) => { const next = event.target.value === "on"; setRecents(next); persistRecentsEnabled(next) }}><option value="on">{t("settings.recentsOn")}</option><option value="off">{t("settings.recentsOff")}</option></select></label>
+              <label data-icon="hide"><strong>{t("settings.hideAuto")}</strong><select value={hideRules.enabled ? "on" : "off"} onChange={(event) => changeHideRules({ enabled: event.target.value === "on" })}><option value="on">{t("settings.recentsOn")}</option><option value="off">{t("settings.recentsOff")}</option></select></label>
+              {hideRules.enabled ? (
+                <button type="button" className="hr-settings-row-button" data-icon="rules" onClick={() => { resetRuleForm(); setRulesModalOpen(true) }}>
+                  <strong>{t("settings.hideRules")}</strong>
+                  <span>{t("settings.hideRulesCount", { count: hideRules.rules.length })} ›</span>
+                </button>
+              ) : null}
+              </>
+            ) : null}
+            {rulesModalOpen ? (
+              <>
+                <button type="button" className="hr-rules-modal-backdrop" aria-label={t("action.close")} onClick={() => setRulesModalOpen(false)} />
+                <section className="hr-rules-modal" role="dialog" aria-modal="true" aria-label={t("settings.hideRules")}>
+                  <header>
+                    <strong>{t("settings.hideRules")}</strong>
+                    <button type="button" aria-label={t("action.close")} onClick={() => setRulesModalOpen(false)}>×</button>
+                  </header>
+                  <small>{t("settings.hideHint")}</small>
+                  <table className="hr-rules-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">{t("settings.hideColumnText")}</th>
+                        <th scope="col" className="hr-rules-actions">{t("settings.hideColumnActions")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {hideRules.rules.map((rule, index) => (
+                        <tr key={`${rule}:${index}`} className={editingRuleIndex === index ? "editing" : undefined}>
+                          <td title={rule}>{rule}</td>
+                          <td className="hr-rules-actions">
+                            <button type="button" aria-label={`${t("settings.hideEdit")}: ${rule}`} title={t("settings.hideEdit")} onClick={() => startEditingRule(index)}><PencilIcon size={15} /></button>
+                            <button type="button" className="danger" aria-label={`${t("settings.hideRemove")}: ${rule}`} title={t("settings.hideRemove")} onClick={() => removeHideRule(index)}><TrashIcon size={15} /></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <form className="hr-settings-hide-add" onSubmit={(event) => { event.preventDefault(); addHideRule() }}>
+                    <input value={newRuleText} onChange={(event) => setNewRuleText(event.target.value)} placeholder={t("settings.hidePlaceholder")} aria-label={t("settings.hidePlaceholder")} autoCapitalize="off" autoCorrect="off" spellCheck={false} />
+                    <button type="submit" disabled={!newRuleText.trim()}>{editingRuleIndex === null ? t("settings.hideAdd") : t("settings.hideSave")}</button>
+                    {editingRuleIndex !== null ? <button type="button" className="hr-rule-cancel" onClick={resetRuleForm}>{t("settings.hideCancelEdit")}</button> : null}
+                  </form>
+                </section>
+              </>
+            ) : null}
+            <label data-icon="language"><strong>{t("settings.language")}</strong><select value={language} onChange={(event) => changeLanguage(event.target.value)}>{languageOptions.map((option) => <option value={option.code} key={option.code}>{option.label}</option>)}</select></label>
           </div>
           <p>{t("sf.appearanceShared")}</p>
           <div className="hr-mobile-settings-group" data-settings-activity>
             <span>{t("settings.activityTitle")}</span>
-            <label><strong>{t("settings.activityLive")}</strong><select value={activity.live} onChange={(event) => changeActivity({ live: event.target.value as LiveActivityMode })}>{LIVE_ACTIVITY_MODES.map((mode) => <option value={mode} key={mode}>{t(`settings.activityLive.${mode}`)}</option>)}</select></label>
-            <label><strong>{t("settings.activityFinished")}</strong><select value={activity.finished} onChange={(event) => changeActivity({ finished: event.target.value as FinishedActivityMode })}>{FINISHED_ACTIVITY_MODES.map((mode) => <option value={mode} key={mode}>{t(`settings.activityFinished.${mode}`)}</option>)}</select></label>
-            <label><strong>{t("settings.activityReasoning")}</strong><select value={activity.reasoning} onChange={(event) => changeActivity({ reasoning: event.target.value as ReasoningMode })}>{REASONING_MODES.map((mode) => <option value={mode} key={mode}>{t(`settings.activityReasoning.${mode}`)}</option>)}</select></label>
+            <label data-icon="live"><strong>{t("settings.activityLive")}</strong><select value={activity.live} onChange={(event) => changeActivity({ live: event.target.value as LiveActivityMode })}>{LIVE_ACTIVITY_MODES.map((mode) => <option value={mode} key={mode}>{t(`settings.activityLive.${mode}`)}</option>)}</select></label>
+            <label data-icon="finished"><strong>{t("settings.activityFinished")}</strong><select value={activity.finished} onChange={(event) => changeActivity({ finished: event.target.value as FinishedActivityMode })}>{FINISHED_ACTIVITY_MODES.map((mode) => <option value={mode} key={mode}>{t(`settings.activityFinished.${mode}`)}</option>)}</select></label>
+            <label data-icon="reasoning"><strong>{t("settings.activityReasoning")}</strong><select value={activity.reasoning} onChange={(event) => changeActivity({ reasoning: event.target.value as ReasoningMode })}>{REASONING_MODES.map((mode) => <option value={mode} key={mode}>{t(`settings.activityReasoning.${mode}`)}</option>)}</select></label>
           </div>
           <p>{t("settings.activityHint")}</p>
+          <AboutSection t={t} skin={skin} onSkinChange={changeSkin} />
           {network ? (
             <div className="hr-mobile-settings-group">
               <span>{t("machine.networkPairingTitle")}</span>
@@ -1233,7 +1380,8 @@ function NativeSessionsWorkspace({
   return (
     <section className={`tdw-shell hr-control-plane hr-native-workspace${sessionFocusMode ? " session-focus-mode" : ""}`} aria-label={t("nav.sessions")}>
       <header className="tdw-topbar hr-topbar">
-        <div className="tdw-brand hr-brand"><img className="tdw-logo hr-logo hr-app-icon" src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" width={32} height={32} /><div><strong>Harness Remote</strong><small>{t("sf.brandTagline")}</small></div></div>
+        <div className="tdw-brand hr-brand"><img className="tdw-logo hr-logo hr-app-icon" src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" width={32} height={32} /><div><strong>Harness Remote</strong><small>{t("sf.brandTagline")}</small></div>
+        </div>
         <div className="tdw-context-path" aria-label={t("sf.workspaceContext")}>
           <span>{selectedMachine?.name || t("sf.allMachines")}</span><b>/</b>
           <strong>{selectedProject || t("sf.nativeSessions")}</strong>
@@ -1245,6 +1393,7 @@ function NativeSessionsWorkspace({
             {t("sf.machineCount", { online: onlineCount, total: machines.length })}
           </span>
           <button type="button" className="tdw-button secondary tdw-machines-button" onClick={onManageMachines}><ServerIcon size={15} /> {t("sf.machines")}</button>
+          <div id="hr-topbar-home-slot" className="hr-topbar-home-slot" />
           <button type="button" className="palette-hint" onClick={() => setPaletteOpen(true)} title={t("command.commandPalette")} aria-label={t("command.commandPalette")}><span>⌘K</span></button>
           {selected ? (
             <button
@@ -1279,6 +1428,9 @@ function NativeSessionsWorkspace({
             onDiscoveredChange={setSessionsDiscovered}
             onRefreshComplete={completeSessionRefresh}
             selectedKey={selected?.key}
+            // Mahurley at phone width: back on the list, the conversation is no longer on screen, so
+            // it must not clear its own "Just finished" mark.
+            selectionOnScreen={activeSkin() !== "compact" || mobileDetailOpen}
             selectedState={selectedState}
             deletingKeys={deletingSessionKeys}
             deletedKeys={deletedSessionKeys}
@@ -1492,6 +1644,8 @@ export function StandaloneUniversalWorkspace({
   // had just found. Open it once, and only once the list has settled with no machines at all.
   const [managerOpen, setManagerOpen] = useState(machinesReady && machines.length === 0)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // Compact skin: inside a conversation the bottom navigation folds away behind a handle.
+  const [navPeek, setNavPeek] = useState(false)
   const managerAutoOpened = useRef(false)
   const machinesLoading = !machinesReady && machines.length === 0
   const mobileSection = managerOpen ? "machines" : settingsOpen ? "settings" : "sessions"
@@ -1588,7 +1742,8 @@ export function StandaloneUniversalWorkspace({
         />
       ) : null}
       {settingsOpen ? <MobileSettingsPage onClose={() => setSettingsOpen(false)} /> : null}
-      <nav className="hr-mobile-nav" aria-label={t("sf.mainNavigation")}>
+      <button type="button" className={`hr-mobile-nav-handle${navPeek ? " open" : ""}`} onClick={() => setNavPeek((open) => !open)} aria-expanded={navPeek} aria-label={t("sf.mainNavigation")}><i aria-hidden="true" /></button>
+      <nav className={`hr-mobile-nav${navPeek ? " peek" : ""}`} aria-label={t("sf.mainNavigation")} onClickCapture={() => setNavPeek(false)}>
         <button type="button" className={mobileSection === "sessions" ? "active" : ""} onClick={showSessions} aria-current={mobileSection === "sessions" ? "page" : undefined}><ChatIcon size={20} /><span>{t("nav.sessions")}</span>{attentionCount ? <b className="hr-mobile-nav-badge" aria-label={t("sf.attentionCount", { count: attentionCount })}>{attentionCount > 9 ? "9+" : attentionCount}</b> : null}</button>
         <button type="button" className={mobileSection === "machines" ? "active" : ""} onClick={showMachines} aria-current={mobileSection === "machines" ? "page" : undefined}><ServerIcon size={20} /><span>{t("sf.machines")}</span></button>
         <button type="button" className={mobileSection === "settings" ? "active" : ""} onClick={showSettings} aria-current={mobileSection === "settings" ? "page" : undefined}><SettingsIcon size={20} /><span>{t("nav.settings")}</span></button>

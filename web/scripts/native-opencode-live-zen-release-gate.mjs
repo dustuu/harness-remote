@@ -234,7 +234,7 @@ async function openSession(targetPage) {
 }
 
 async function waitReady(targetPage, timeout = 120_000) {
-  await targetPage.locator(".tdw-conversation-state.ready").waitFor({ state: "attached", timeout })
+  await targetPage.locator(".tdw-conversation-state.ready:visible").waitFor({ state: "visible", timeout })
   const composer = targetPage.getByRole("textbox", { name: "Message OpenCode" })
   await composer.waitFor({ state: "visible", timeout: 20_000 })
   await waitFor("enabled composer", async () => !(await composer.isDisabled()), 20_000, 150)
@@ -275,7 +275,7 @@ async function sendUI(token) {
       assert.equal(await finalLocator(page, token).count(), 1, `${token}: UI final duplicated`)
       return
     }
-    if (await page.locator(".tdw-conversation-state.ready").count() && await reasoningLocator(page, token).count()) {
+    if (await page.locator(".tdw-conversation-state.ready:visible").count() && await reasoningLocator(page, token).count()) {
       throw new Error(`${token}: Ready with requested output only in reasoning/activity, no final answer`)
     }
     await page.waitForTimeout(400)
@@ -351,7 +351,7 @@ try {
     assert.equal(await finalLocator(page, token).count(), 1, `${token}: UI final missing/duplicated at end`)
   }
   assert.equal(await page.locator(".uw-message-pending").count(), 0, "pending assistant row remains")
-  assert.equal(await page.locator(".tdw-conversation-state.working").count(), 0, "Session remains Working")
+  assert.equal(await page.locator(".tdw-conversation-state.working:visible").count(), 0, "Session remains Working")
   assert.equal(await page.locator(".hr-activity.is-running").count(), 0, "Activity remains running")
 
   await page.screenshot({ path: path.join(artifacts, "live-opencode-release-passed.png"), fullPage: true })

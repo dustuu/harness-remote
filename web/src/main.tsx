@@ -46,6 +46,10 @@ import "./beautiful-ui-controls.css"
 import "./activity-timeline.css"
 // The narrow Session header refines phone rules from several sheets above, so it settles last.
 import "./session-header-narrow.css"
+// Phone conversation chrome: one-row header, controls in a bottom sheet.
+import "./mobile-compact-chat.css"
+// Final polish for the compact Session list. Self-contained: remove this import to revert it.
+import "./compact-final-touch.css"
 
 installAppPreferences()
 installCompletionAudioGuard()

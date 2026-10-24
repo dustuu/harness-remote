@@ -567,7 +567,7 @@ async function openSession(page, title) {
 }
 
 async function waitForReady(page) {
-  await page.locator(".tdw-conversation-state.ready").waitFor({ state: "attached", timeout: 12_000 })
+  await page.locator(".tdw-conversation-state.ready:visible").waitFor({ state: "visible", timeout: 12_000 })
   const composer = page.getByRole("textbox", { name: "Message OpenCode" })
   await composer.waitFor({ state: "visible", timeout: 12_000 })
   assert.equal(await composer.isDisabled(), false, "OpenCode composer must be enabled")
@@ -610,7 +610,7 @@ async function assertPersistedReplyWithoutLiveEvent(page, label) {
   await pending.waitFor({ state: "detached", timeout: 10_000 })
   await waitForReady(page)
   assert.equal(
-    await page.locator(".tdw-conversation-state.working").count(),
+    await page.locator(".tdw-conversation-state.working:visible").count(),
     0,
     `${label}: a persisted OpenCode reply must settle the Session while it remains mounted`
   )
@@ -729,7 +729,7 @@ async function assertExistingContract(browser, viewport, mobile) {
   await sendPrompt(page, TERMINAL_INTERRUPT_PROMPT)
   await page.getByText("Turn failed", { exact: true }).waitFor({ state: "visible", timeout: 25_000 })
   await page.getByText(SILENT_TURN_ERROR_MESSAGE, { exact: true }).waitFor({ state: "visible", timeout: 25_000 })
-  await page.locator(".tdw-conversation-state.attention").waitFor({ state: "attached", timeout: 12_000 })
+  await page.locator(".tdw-conversation-state.attention:visible").waitFor({ state: "visible", timeout: 12_000 })
   const failedComposer = page.getByRole("textbox", { name: "Message OpenCode" })
   assert.equal(await failedComposer.isDisabled(), false, "a confirmed no-final failure must leave the composer usable for recovery")
   assert.equal(await page.getByText("Response interrupted", { exact: true }).count(), 0, "confirmed no-final failure must not masquerade as a successful Ready interruption")
@@ -738,7 +738,7 @@ async function assertExistingContract(browser, viewport, mobile) {
   await page.getByText(TERMINAL_ERROR_MESSAGE, { exact: true }).waitFor({ state: "visible", timeout: 12_000 })
   await waitForReady(page)
   assert.equal(
-    await page.locator(".tdw-conversation-state.working").count(),
+    await page.locator(".tdw-conversation-state.working:visible").count(),
     0,
     "a terminal OpenCode provider error must stop Working while the Session remains mounted even when /session/status omits it"
   )

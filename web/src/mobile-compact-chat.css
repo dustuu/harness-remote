@@ -1,0 +1,1875 @@
+/* Phone conversation chrome, ChatGPT-style: the Session header floats over the transcript as one
+   row, and harness/model/effort live in a small card above the composer.
+   Everything phone-specific applies only with the "compact" skin (Settings → Interface → Skin);
+   the "classic" skin and desktop keep the original layout.
+   Earlier sheets set most of these properties with !important, so the properties that collide with
+   them are marked the same way here and win by specificity and load order. */
+.tdw-effort-anchor,
+.hr-topbar-home-slot,
+.hr-native-search-backdrop,
+.hr-native-create-backdrop,
+.hr-mobile-nav-handle,
+.uw-button-icon,
+.uw-machine-harness-icon,
+.hr-native-project-more-icon {
+  display: none;
+}
+
+/* Monochrome brand marks are drawn white for the dark theme; flip them on the light one. */
+:root[data-skin="compact"]:not([data-theme="dark"]) img:is([src$="/brand/codex.svg"], [src$="/brand/copilot.svg"], [src$="/brand/opencode.svg"]) {
+  filter: invert(1);
+}
+
+:root[data-skin="compact"] .tdw-model-provider header {
+  align-items: center;
+}
+
+:root[data-skin="compact"] .tdw-model-provider-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  border-radius: 5px;
+}
+
+/* Session rows (compact skin): Ready is split by how long the Session has been quiet.
+   fresh = just finished (or an unseen result), ready = finished a while ago, idle = long quiet. */
+:root[data-skin="compact"] .hr-native-session-harness i[data-state="working"] {
+  animation: hr-state-pulse 1.4s ease-in-out infinite;
+}
+
+:root[data-skin="compact"] .hr-native-session-harness i[data-state="fresh"] {
+  background: #22d3ee;
+  animation: hr-fresh-ping 1.6s ease-out infinite;
+}
+
+:root[data-skin="compact"] .hr-native-session-status[data-state="fresh"] {
+  color: #22d3ee;
+  font-weight: 700;
+  animation: hr-fresh-blink 1.6s ease-in-out infinite;
+}
+
+:root[data-skin="compact"]:not([data-theme="dark"]) .hr-native-session-status[data-state="fresh"] {
+  color: #0891b2;
+}
+
+:root[data-skin="compact"] .hr-native-session-status[data-state="ready"] {
+  /* Neutral: a finished Session already seen needs no colour; only "Just finished" stands out. */
+  color: var(--td3-muted, #8b93a3);
+}
+
+@keyframes hr-state-pulse {
+  50% { opacity: .35; }
+}
+
+/* "Just finished": a cyan dot that sends out a ring, and a label that breathes with it. */
+@keyframes hr-fresh-ping {
+  0% { box-shadow: 0 0 0 0 rgba(34, 211, 238, .75); }
+  70% { box-shadow: 0 0 0 7px rgba(34, 211, 238, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
+}
+
+@keyframes hr-fresh-blink {
+  50% { opacity: .45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-skin="compact"] .hr-native-session-harness i[data-state="working"],
+  :root[data-skin="compact"] .hr-native-session-harness i[data-state="fresh"],
+  :root[data-skin="compact"] .hr-native-session-status[data-state="fresh"] {
+    animation: none;
+  }
+}
+
+/* Session rows (compact): the separator comes from CSS so the harness name can be dropped cleanly. */
+:root[data-skin="compact"] .hr-native-session-extra::before {
+  content: " · ";
+}
+
+/* Compact skin: the harness logo already names the agent, so the row drops the repeated label and,
+   when nothing else is left on that line, the line itself. */
+:root[data-skin="compact"] .hr-native-session-agent-label {
+  display: none;
+}
+
+:root[data-skin="compact"] .hr-native-session-agent-label + .hr-native-session-extra::before {
+  content: none;
+}
+
+:root[data-skin="compact"] .hr-native-session-copy small:not(:has(.hr-native-session-extra, .hr-native-session-policy, .hr-native-session-child-label, .hr-native-session-changes)) {
+  display: none;
+}
+
+/* Model list opened without the search field: a floating magnifier in the corner brings it up, so
+   opening the list never raises the keyboard on its own. */
+.tdw-model-search-fab {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--td3-blue, #3b82f6);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+  cursor: pointer;
+}
+
+/* Unseen results speak the same colour as "just finished": cyan, not the theme's lilac blue. */
+:root[data-skin="compact"] .hr-native-project-heading .hr-native-project-ready {
+  border: 1px solid rgba(34, 211, 238, .55);
+  background: rgba(34, 211, 238, .16);
+  color: #22d3ee;
+  line-height: 15px;
+}
+
+:root[data-skin="compact"] .hr-native-machine-metrics .hr-native-machine-ready {
+  color: #22d3ee;
+}
+
+/* Compact rows read at normal weight; only a finished Session the user has not opened yet keeps
+   the project's bold "unseen" title, so bold always means "new result". */
+:root[data-skin="compact"] .hr-native-session-row:not(.unseen) .hr-native-session-copy strong {
+  font-weight: 520;
+}
+
+:root[data-skin="compact"] .hr-native-session-row.unseen {
+  background: rgba(34, 211, 238, .06);
+}
+
+:root[data-skin="compact"] .hr-native-session-row.unseen .hr-native-session-copy strong::before {
+  background: #22d3ee;
+}
+
+:root[data-skin="compact"]:not([data-theme="dark"]) :is(.hr-native-project-heading .hr-native-project-ready, .hr-native-machine-metrics .hr-native-machine-ready) {
+  color: #0891b2;
+}
+
+/* "Show more" as a quiet full-width control: hairline border, muted label, a chevron that turns when
+   the list is open. */
+:root[data-skin="compact"] .hr-native-project-more {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: calc(100% - 16px) !important;
+  min-height: 36px !important;
+  margin: 6px 8px 10px !important;
+  padding: 0 14px !important;
+  border: 1px solid var(--td3-border-strong) !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  color: var(--td3-muted) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: .01em;
+  transition: background-color .15s ease, color .15s ease;
+}
+
+:root[data-skin="compact"] .hr-native-project-more:active {
+  background: var(--td3-panel) !important;
+  color: var(--td3-text) !important;
+}
+
+:root[data-skin="compact"] .hr-native-project-more-icon {
+  display: block;
+  transition: transform .2s ease;
+}
+
+:root[data-skin="compact"] .hr-native-project-more[aria-expanded="true"] .hr-native-project-more-icon {
+  transform: rotate(180deg);
+}
+
+/* "Load older Sessions" matches "Show more": a quiet full-width control. */
+:root[data-skin="compact"] .hr-native-home-pagination {
+  padding: 4px 8px 14px !important;
+}
+
+:root[data-skin="compact"] .hr-native-home-pagination .tdw-button {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100% !important;
+  min-height: 40px !important;
+  border: 1px dashed var(--td3-border-strong) !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  color: var(--td3-muted) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+:root[data-skin="compact"] .hr-native-home-pagination .tdw-button:active {
+  background: var(--td3-panel) !important;
+  color: var(--td3-text) !important;
+}
+
+/* Motion, compact skin. Everything animates transform/opacity only (compositor work, no layout),
+   stays under 250 ms, and is switched off for people who ask for reduced motion. */
+:root[data-skin="compact"] .hr-native-session-row,
+:root[data-skin="compact"] .hr-topbar :is(.palette-hint, .hr-refresh-button, .hr-topbar-search, .hr-topbar-new-session),
+:root[data-skin="compact"] .hr-mobile-nav button,
+:root[data-skin="compact"] .hr-native-session-filters button,
+:root[data-skin="compact"] .uw-machine-overview .uw-manager-button,
+:root[data-skin="compact"] .uw-composer-footer .uw-button,
+:root[data-skin="compact"] .hr-native-project-more,
+:root[data-skin="compact"] .hr-native-home-pagination .tdw-button {
+  transition: transform .14s ease, background-color .18s ease, color .18s ease, opacity .18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:root[data-skin="compact"] .hr-native-session-row:active {
+  transform: scale(.985);
+}
+
+:root[data-skin="compact"] .hr-topbar :is(.palette-hint, .hr-refresh-button, .hr-topbar-search, .hr-topbar-new-session):active,
+:root[data-skin="compact"] .uw-machine-overview .uw-manager-button:active,
+:root[data-skin="compact"] .uw-composer-footer .uw-button:active {
+  transform: scale(.9);
+}
+
+:root[data-skin="compact"] .hr-mobile-nav button:active,
+:root[data-skin="compact"] .hr-native-session-filters button:active,
+:root[data-skin="compact"] .hr-native-project-more:active,
+:root[data-skin="compact"] .hr-native-home-pagination .tdw-button:active {
+  transform: scale(.97);
+}
+
+/* The refresh icon turns once per tap. */
+:root[data-skin="compact"] .hr-topbar .hr-refresh-button:active svg {
+  transform: rotate(-120deg);
+  transition: transform .25s ease;
+}
+
+/* Opening a conversation slides it in; pages and cards fade up into place. */
+@keyframes hr-slide-in {
+  from { transform: translateX(18px); opacity: .4; }
+}
+
+@keyframes hr-fade-up {
+  from { transform: translateY(6px); opacity: 0; }
+}
+
+:root[data-skin="compact"] .hr-native-workspace-detail.mobile-open {
+  animation: hr-slide-in .22s cubic-bezier(.2, .8, .2, 1);
+}
+
+:root[data-skin="compact"] .uw-machine-overview .uw-machine-config-card,
+:root[data-skin="compact"] .hr-mobile-settings-body,
+:root[data-skin="compact"] .tdw-effort-card {
+  animation: hr-fade-up .2s cubic-bezier(.2, .8, .2, 1);
+}
+
+/* Expanding a Project reveals its first rows with a short fade — only the first few, so long lists
+   never animate hundreds of rows. */
+:root[data-skin="compact"] .hr-native-home-list > .hr-native-session-row:nth-child(-n+6) {
+  animation: hr-fade-up .18s ease-out backwards;
+}
+
+:root[data-skin="compact"] .hr-native-home-list > .hr-native-session-row:nth-child(2) { animation-delay: .02s; }
+:root[data-skin="compact"] .hr-native-home-list > .hr-native-session-row:nth-child(3) { animation-delay: .04s; }
+:root[data-skin="compact"] .hr-native-home-list > .hr-native-session-row:nth-child(4) { animation-delay: .06s; }
+:root[data-skin="compact"] .hr-native-home-list > .hr-native-session-row:nth-child(5) { animation-delay: .08s; }
+:root[data-skin="compact"] .hr-native-home-list > .hr-native-session-row:nth-child(6) { animation-delay: .1s; }
+
+/* Project chevrons turn instead of jumping. */
+:root[data-skin="compact"] .hr-native-project-chevron svg {
+  transition: transform .2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-skin="compact"] *,
+  :root[data-skin="compact"] *::before,
+  :root[data-skin="compact"] *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}
+
+/* Search fields: one frame only. The box draws the border and the focus ring; the input inside is
+   bare, so the two never sit offset on top of each other. */
+:root[data-skin="compact"] :is(.hr-native-session-search, .hr-machine-search) {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px !important;
+  padding: 0 14px !important;
+  border: 1px solid var(--td3-border-strong) !important;
+  border-radius: 12px !important;
+  background: var(--td3-panel-2, var(--td3-panel)) !important;
+  box-shadow: none !important;
+  outline: none !important;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+:root[data-skin="compact"] :is(.hr-native-session-search, .hr-machine-search):focus-within {
+  border-color: var(--td3-blue) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--td3-blue) 22%, transparent) !important;
+}
+
+:root[data-skin="compact"] :is(.hr-native-session-search, .hr-machine-search) input {
+  flex: 1;
+  min-width: 0;
+  height: 42px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: var(--td3-text) !important;
+  font-size: 16px !important;
+}
+
+:root[data-skin="compact"] :is(.hr-native-session-search, .hr-machine-search) input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+/* Settings: one row opens the hide-rules modal; the modal lists rules (tap to edit, × to remove)
+   and adds or saves one at a time. */
+/* The "Hide rules" row matches the settings rows around it: same padding, height, hairline divider,
+   label weight; the rule count sits where their selects sit. */
+.hr-mobile-settings-group .hr-settings-row-button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 54px;
+  margin: 0;
+  padding: 7px 11px;
+  border: 0;
+  border-top: 1px solid rgba(148, 163, 184, .08);
+  border-radius: 0;
+  background: transparent;
+  color: var(--td3-text);
+  font: inherit;
+  text-align: left;
+}
+
+.hr-mobile-settings-group .hr-settings-row-button > strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.hr-mobile-settings-group .hr-settings-row-button > span {
+  color: var(--td3-muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.hr-rules-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  border: 0;
+  padding: 0;
+  background: rgba(0, 0, 0, .6);
+  animation: hr-fade-in .18s ease;
+}
+
+.hr-rules-modal {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  top: 50%;
+  z-index: 1101;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: calc(100dvh - 48px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--td3-border-strong);
+  border-radius: 20px;
+  background: var(--td3-panel);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, .5);
+  transform: translateY(-50%);
+  animation: hr-modal-in .2s cubic-bezier(.2, .8, .2, 1);
+}
+
+.hr-rules-modal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 16px;
+  color: var(--td3-text);
+}
+
+.hr-rules-modal > header button {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--td3-muted);
+  font-size: 20px;
+}
+
+.hr-rules-modal > small {
+  color: var(--td3-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* Rules as a table: one framed block, hairline rows, the text column truncates, actions on the right. */
+:root[data-skin="compact"] .hr-rules-table {
+  width: 100%;
+  border: 1px solid var(--td3-border-strong);
+  border-radius: 12px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  table-layout: fixed;
+  font-size: 13px;
+}
+
+:root[data-skin="compact"] .hr-rules-table th {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--td3-border-strong);
+  background: var(--td3-panel-2, var(--td3-panel));
+  color: var(--td3-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+:root[data-skin="compact"] .hr-rules-table td {
+  padding: 0 12px;
+  height: 44px;
+  border-bottom: 1px solid color-mix(in srgb, var(--td3-border-strong) 60%, transparent);
+  color: var(--td3-text);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+:root[data-skin="compact"] .hr-rules-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+:root[data-skin="compact"] .hr-rules-table tbody tr {
+  transition: background-color .15s ease;
+}
+
+:root[data-skin="compact"] .hr-rules-table tbody tr.editing {
+  background: color-mix(in srgb, var(--td3-blue) 14%, transparent);
+}
+
+:root[data-skin="compact"] .hr-rules-table .hr-rules-actions {
+  width: 88px;
+  padding: 0 6px;
+  text-align: right;
+}
+
+:root[data-skin="compact"] .hr-rules-table td.hr-rules-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--td3-muted);
+}
+
+:root[data-skin="compact"] .hr-rules-table td.hr-rules-actions button.danger {
+  color: var(--td3-red-text, #f87171);
+}
+
+:root[data-skin="compact"] .hr-rules-table td.hr-rules-actions button:active {
+  background: var(--td3-panel-2, var(--td3-panel));
+}
+
+:root[data-skin="compact"] .hr-settings-hide-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "text add" "cancel cancel";
+  gap: 6px;
+  margin-top: 4px;
+}
+
+:root[data-skin="compact"] .hr-settings-hide-add .hr-rule-cancel {
+  grid-area: cancel;
+  border-color: var(--td3-border-strong);
+  background: transparent;
+  color: var(--td3-muted);
+}
+
+:root[data-skin="compact"] .hr-settings-hide-add input { grid-area: text; }
+:root[data-skin="compact"] .hr-settings-hide-add button { grid-area: add; }
+
+:root[data-skin="compact"] .hr-settings-hide-add :is(select, input, button) {
+  min-height: 40px;
+  border: 1px solid var(--td3-border-strong);
+  border-radius: 10px;
+  background: var(--td3-panel-2, var(--td3-panel));
+  color: var(--td3-text);
+  font-size: 14px;
+}
+
+:root[data-skin="compact"] .hr-settings-hide-add select {
+  padding: 0 8px;
+}
+
+:root[data-skin="compact"] .hr-settings-hide-add input {
+  min-width: 0;
+  padding: 0 10px;
+  outline: none;
+}
+
+:root[data-skin="compact"] .hr-settings-hide-add input:focus {
+  border-color: var(--td3-blue);
+}
+
+:root[data-skin="compact"] .hr-settings-hide-add button {
+  padding: 0 12px;
+  border-color: var(--td3-blue);
+  background: var(--td3-blue);
+  color: #fff;
+  font-weight: 600;
+}
+
+:root[data-skin="compact"] .hr-settings-hide-add button:disabled {
+  opacity: .45;
+}
+
+/* Search panel: reveal or re-hide the Sessions the title patterns keep out of the list. */
+:root[data-skin="compact"] .hr-native-hidden-toggle {
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px dashed var(--td3-border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--td3-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+:root[data-skin="compact"] .hr-native-hidden-toggle.active {
+  border-style: solid;
+  border-color: var(--td3-blue);
+  color: var(--td3-blue);
+}
+
+/* Settings → About: app identity, creator/repository/license rows, contributor avatars. */
+.hr-about-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px 14px;
+}
+
+.hr-about-hero img {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+}
+
+.hr-about-hero strong {
+  display: block;
+  color: var(--td3-text);
+  font-size: 17px;
+}
+
+.hr-about-hero small {
+  color: var(--td3-muted);
+  font-size: 12.5px;
+}
+
+.hr-about .hr-about-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 6px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--td3-border-strong) 55%, transparent);
+  color: var(--td3-text);
+  text-decoration: none;
+}
+
+.hr-about .hr-about-row > strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.hr-about .hr-about-row > span {
+  overflow: hidden;
+  color: var(--td3-muted);
+  font-size: 13.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* About → Skins: a row that opens the skin gallery; one card per skin with its author. */
+.hr-about button.hr-about-row {
+  width: 100%;
+  margin: 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hr-skin-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hr-skin-cards li {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--td3-border-strong);
+  border-radius: 14px;
+  background: var(--td3-panel-2, var(--td3-panel));
+  transition: border-color .15s ease;
+}
+
+.hr-skin-cards li.active {
+  border-color: var(--td3-blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--td3-blue) 18%, transparent);
+}
+
+.hr-skin-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hr-skin-card-head strong {
+  color: var(--td3-text);
+  font-size: 16px;
+}
+
+.hr-skin-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--td3-blue) 18%, transparent);
+  color: var(--td3-blue);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hr-skin-use {
+  min-height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--td3-blue);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hr-skin-cards p {
+  margin: 0;
+  color: var(--td3-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.hr-skin-cards a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  color: var(--td3-text);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+@media (max-width: 780px) {
+  /* Header: one transparent row over the transcript. */
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .hr-native-workspace-session-header {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 20 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    min-height: 52px !important;
+    padding: 6px 8px 14px 52px !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    /* Solid behind the title row, fading only below it, so transcript text scrolling up never shows
+       through the title or the back button. */
+    background: linear-gradient(180deg, var(--td3-bg) 0%, var(--td3-bg) 72%, transparent 100%) !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .tdw-mobile-back {
+    position: absolute !important;
+    top: 6px !important;
+    left: 6px !important;
+    z-index: 21 !important;
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    border-radius: 999px !important;
+    background: color-mix(in srgb, var(--td3-panel) 85%, transparent) !important;
+    font-size: 0 !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .tdw-mobile-back::before {
+    content: "‹";
+    font-size: 26px;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .hr-native-session-eyebrow,
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .hr-native-session-heading > small,
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .hr-native-session-stats,
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .hr-native-workspace-session-actions > code {
+    display: none !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .hr-native-session-heading {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .hr-native-session-heading :is(h1, h2, .hr-native-session-title) {
+    margin: 0;
+    min-width: 0;
+    font-size: 16px !important;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .hr-native-session-heading .hr-native-session-title-button {
+    max-width: 100% !important;
+    justify-content: flex-start !important;
+    text-align: left !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .hr-native-workspace-session-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex: none !important;
+    width: auto !important;
+    min-width: 0 !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .hr-native-workspace-session-actions .tdw-icon-button {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    border-radius: 999px !important;
+    background: color-mix(in srgb, var(--td3-panel) 85%, transparent) !important;
+  }
+
+  /* Status lives in the composer, beside the paperclip; the header keeps only back, title and
+     rename. */
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .hr-native-workspace-session-header:not(:has(.hr-native-session-title.editing)) .hr-native-workspace-session-actions {
+    display: none !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .hr-native-workspace-session-header {
+    padding-right: 12px !important;
+  }
+
+  :root[data-skin="compact"] .tdw-composer-status {
+    order: -2;
+    display: inline-flex;
+    align-items: center;
+    margin-right: auto;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-composer-status .tdw-conversation-state {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    max-width: 110px;
+    padding: 0 9px;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Delete shows up only while renaming, beside the confirm/cancel buttons. */
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .hr-native-workspace-session-header:has(.hr-native-session-title.editing) .hr-native-workspace-session-actions {
+    display: flex !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .hr-native-workspace-session-header:has(.hr-native-session-title.editing) .hr-native-workspace-session-actions .tdw-icon-button {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    border-radius: 999px !important;
+  }
+
+
+
+  /* The transcript scrolls under the floating header. */
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .uw-transcript {
+    padding-top: 56px !important;
+  }
+
+  /* Without lineage the outcome row is the observer's first child, so it would sit under the
+     floating header; reserve the header height before it so its toggle stays reachable. */
+  :root[data-skin="compact"] .hr-control-plane.hr-native-workspace .hr-native-session-observer > .hr-native-outcome:first-child {
+    margin-top: 56px !important;
+  }
+
+  /* The outcome panel stays as its own collapsible row on a phone: its toggle is the only way to
+     reach branch, changed files and review evidence, which the status pill does not carry. It
+     starts collapsed, so it costs one row until the user opens it. */
+
+  /* Harness/model/effort moved into the composer card. */
+  :root[data-skin="compact"] .hr-control-plane .tdw-work-thread-conversation .tdw-conversation-toolbar {
+    display: none !important;
+  }
+
+  /* Notices float under the header like toasts instead of pushing the transcript down. */
+  :root[data-skin="compact"] .hr-control-plane .tdw-work-thread-conversation > :is(.tdw-connection-notice, .tdw-route-preview, .tdw-chat-error) {
+    position: absolute !important;
+    top: 56px !important;
+    left: 8px !important;
+    right: 8px !important;
+    z-index: 19;
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 6px 12px !important;
+    border: 1px solid var(--td3-border-strong) !important;
+    border-radius: 999px !important;
+    background: var(--td3-panel) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .3);
+    font-size: 12px !important;
+    line-height: 1.3 !important;
+  }
+
+  /* The long hint is dropped on a phone, except when it is the reason sending is blocked
+     (attached images cannot move to another harness): then it is the only explanation. */
+  :root[data-skin="compact"] .hr-control-plane .tdw-work-thread-conversation > .tdw-route-preview:not(.blocked) > small {
+    display: none !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-work-thread-conversation > .tdw-route-preview.blocked {
+    flex-wrap: wrap !important;
+    border-radius: 14px !important;
+    border-color: var(--td3-yellow, #e3b341) !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-work-thread-conversation > .tdw-route-preview.blocked > small {
+    flex-basis: 100%;
+    color: var(--td3-yellow-text, #e3b341);
+    white-space: normal;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-work-thread-conversation > .tdw-connection-notice {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Composer: effort pill next to the paperclip, card floating just above the composer. */
+  :root[data-skin="compact"] .hr-control-plane .tdw-work-thread-conversation .uw-composer-shell {
+    position: relative !important;
+  }
+
+  :root[data-skin="compact"] .tdw-effort-anchor {
+    display: contents;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-work-thread-conversation .uw-composer-footer {
+    width: auto !important;
+    max-width: calc(100% - 16px) !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-work-thread-conversation .uw-composer-footer .uw-button.tdw-controls-trigger {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 4px;
+    width: auto !important;
+    min-width: 0 !important;
+    flex: none !important;
+    max-width: 150px;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 12px !important;
+    border-radius: 999px !important;
+    font-size: 13px !important;
+    white-space: nowrap;
+  }
+
+  /* Footer buttons are icon-only on phones (line-height 0); this one carries a label. */
+  :root[data-skin="compact"] .hr-control-plane .tdw-work-thread-conversation .uw-composer-footer .tdw-controls-trigger > span {
+    display: block !important;
+    line-height: 1.2 !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: capitalize;
+  }
+
+  :root[data-skin="compact"] .tdw-effort-anchor .tdw-controls-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    border: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  /* The effort accent follows the selected harness's brand colour. */
+  :root[data-skin="compact"] .tdw-effort-card {
+    --effort-accent: var(--td3-blue);
+  }
+
+  :root[data-skin="compact"] .tdw-effort-card[data-harness="claude"] { --effort-accent: #D97757; }
+  :root[data-skin="compact"] .tdw-effort-card[data-harness="copilot"] { --effort-accent: #8957E5; }
+  :root[data-skin="compact"] .tdw-effort-card[data-harness="mimo"] { --effort-accent: #FF6900; }
+  :root[data-skin="compact"] .tdw-effort-card[data-harness="opencode"],
+  :root[data-skin="compact"] .tdw-effort-card[data-harness="opencode2"] { --effort-accent: #F5A742; }
+  :root[data-skin="compact"] .tdw-effort-card[data-harness="pi"] { --effort-accent: #8B5CF6; }
+  :root[data-skin="compact"] .tdw-effort-card[data-harness="omp"] { --effort-accent: #94A3B8; }
+
+  :root[data-skin="compact"] .tdw-effort-card {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 160px;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 14px 14px 16px;
+    border: 1px solid var(--td3-border-strong);
+    border-radius: 20px;
+    background: var(--td3-panel);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .45);
+    color: var(--td3-text);
+  }
+
+  :root[data-skin="compact"] .tdw-effort-card-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: start;
+    gap: 6px;
+  }
+
+  :root[data-skin="compact"] .tdw-effort-card-title {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+    text-align: center;
+  }
+
+  :root[data-skin="compact"] .tdw-effort-card-title > strong {
+    color: var(--effort-accent);
+    font-size: 17px;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+
+  /* The model picker trigger reads as a "Model ›" link under the effort name. */
+  :root[data-skin="compact"] .hr-control-plane .tdw-effort-card-title .tdw-model-picker {
+    width: auto !important;
+    max-width: 100% !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-effort-card-title .tdw-model-trigger {
+    width: auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 2px 6px !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--td3-muted) !important;
+    font-size: 13px !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-effort-card-title .tdw-model-trigger-copy small {
+    display: none !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-effort-card-title .tdw-model-trigger-copy strong {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-effort-card .tdw-model-popover {
+    position: fixed !important;
+    left: 8px !important;
+    right: 8px !important;
+    top: auto !important;
+    bottom: 160px !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: 60vh !important;
+    z-index: 1002 !important;
+  }
+
+  /* Harness switcher: the harness logo, with the native select laid over it for the picker. */
+  :root[data-skin="compact"] .tdw-effort-card-agent {
+    position: relative;
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    height: 36px;
+    padding: 0 4px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--td3-muted);
+    font-size: 12px;
+    text-transform: capitalize;
+  }
+
+  :root[data-skin="compact"] .tdw-effort-card-agent img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+  }
+
+  :root[data-skin="compact"] .tdw-effort-card-agent select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  :root[data-skin="compact"] .tdw-effort-card-reset {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    justify-self: end;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--td3-muted);
+  }
+
+  :root[data-skin="compact"] .tdw-effort-card-reset > span {
+    display: inline-flex;
+  }
+
+  :root[data-skin="compact"] .tdw-spin-once {
+    animation: tdw-spin-once .5s cubic-bezier(.2, .8, .2, 1);
+  }
+
+  @keyframes tdw-spin-once {
+    to { transform: rotate(360deg); }
+  }
+
+  :root[data-skin="compact"] .tdw-effort-card-reset:disabled {
+    opacity: .35;
+  }
+
+  :root[data-skin="compact"] .tdw-effort-card-note {
+    margin: 0;
+    color: var(--td3-muted);
+    font-size: 13px;
+    text-align: center;
+  }
+
+  /* Effort track: a pill with a dot per level, a filled run up to the knob. The native range input
+     sits on top, invisible, so dragging and keyboard control stay native; fill and knob are drawn
+     separately so they can animate. Positions run from the centre of the first dot (knob radius in)
+     to the centre of the last. */
+  :root[data-skin="compact"] .tdw-effort-slider {
+    --knob: 32px;
+    --inset: 4px;
+    --travel: calc(100% - var(--knob) - var(--inset) * 2);
+    position: relative;
+    height: calc(var(--knob) + var(--inset) * 2);
+    border-radius: 999px;
+    background: var(--td3-panel-3);
+    box-shadow: inset 0 0 0 1px var(--td3-border-strong);
+  }
+
+  :root[data-skin="compact"] .tdw-effort-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: calc(var(--inset) * 2 + var(--knob) + var(--travel) * var(--effort-ratio, 0));
+    border-radius: 999px;
+    background: var(--effort-accent);
+    transition: width .22s cubic-bezier(.2, .8, .2, 1);
+  }
+
+  :root[data-skin="compact"] .tdw-effort-dots {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--inset) + var(--knob) / 2);
+    right: calc(var(--inset) + var(--knob) / 2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+
+  :root[data-skin="compact"] .tdw-effort-dots i {
+    width: 5px;
+    height: 5px;
+    margin: 0 -2.5px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--td3-text) 40%, transparent);
+    transition: background-color .22s ease;
+  }
+
+  :root[data-skin="compact"] .tdw-effort-dots i.passed {
+    background: color-mix(in srgb, #fff 70%, transparent);
+  }
+
+  :root[data-skin="compact"] .tdw-effort-knob {
+    position: absolute;
+    top: var(--inset);
+    left: calc(var(--inset) + var(--travel) * var(--effort-ratio, 0));
+    width: var(--knob);
+    height: var(--knob);
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .35);
+    pointer-events: none;
+    transition: left .22s cubic-bezier(.2, .8, .2, 1), transform .15s ease;
+  }
+
+  :root[data-skin="compact"] .tdw-effort-slider:active .tdw-effort-knob {
+    transform: scale(1.08);
+  }
+
+  :root[data-skin="compact"] .tdw-effort-slider input[type="range"] {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  :root[data-skin="compact"] .tdw-effort-slider:has(input:focus-visible) {
+    outline: 2px solid var(--effort-accent);
+    outline-offset: 2px;
+  }
+
+  /* Model list inside the card: one compact row per model, provider logo in the group header.
+     Effort lives on the slider, so the per-model variant chips are not repeated here. */
+  :root[data-skin="compact"] .hr-control-plane .tdw-effort-card .tdw-model-popover {
+    padding: 8px !important;
+    border-radius: 18px !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-effort-card .tdw-model-search-wrap {
+    min-height: 40px !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-effort-card .tdw-model-search-wrap input {
+    font-size: 15px !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-effort-card .tdw-model-provider header {
+    display: flex !important;
+    padding: 10px 6px 4px !important;
+    font-size: 12px !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-effort-card .tdw-model-provider header > span {
+    margin-left: auto;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-effort-card .tdw-model-row {
+    margin: 0 0 4px !important;
+    border-radius: 12px !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-effort-card .tdw-model-main {
+    min-height: 44px !important;
+    padding: 8px 12px !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-effort-card .tdw-model-name {
+    gap: 0 !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-effort-card .tdw-model-name strong {
+    font-size: 15px !important;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-effort-card :is(.tdw-model-name code, .tdw-model-copy > small, .tdw-model-variants, .tdw-model-popover > footer) {
+    display: none !important;
+  }
+
+  /* Home: New Session and search move into the top bar; the page heading goes. */
+  :root[data-skin="compact"] .hr-topbar-home-slot {
+    display: contents;
+  }
+
+  /* The top bar is opaque in the compact skin so nothing scrolls visibly behind it. */
+  :root[data-skin="compact"] .uw-standalone-host .hr-topbar {
+    background: var(--td3-bg) !important;
+    backdrop-filter: none !important;
+  }
+
+  :root[data-skin="compact"] .hr-machine-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px;
+    padding: 0 12px;
+    min-height: 42px;
+    border: 1px solid var(--td3-border-strong);
+    border-radius: 12px;
+    background: var(--td3-panel);
+    color: var(--td3-muted);
+  }
+
+  :root[data-skin="compact"] .hr-machine-search input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--td3-text);
+    font-size: 15px;
+  }
+
+  /* Top bar actions share one shape: 36px circles, same surface, same icon size. */
+  :root[data-skin="compact"] .hr-topbar .tdw-top-actions {
+    gap: 6px !important;
+    align-items: center !important;
+  }
+
+  :root[data-skin="compact"] .hr-topbar .tdw-top-actions > :is(.palette-hint, .hr-refresh-button),
+  :root[data-skin="compact"] .hr-topbar .hr-topbar-home-slot > button {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    border: 1px solid var(--td3-border-strong) !important;
+    border-radius: 999px !important;
+    background: var(--td3-panel) !important;
+    color: var(--td3-text) !important;
+    box-shadow: none !important;
+  }
+
+  :root[data-skin="compact"] .hr-topbar .tdw-top-actions > .hr-refresh-button svg,
+  :root[data-skin="compact"] .hr-topbar .hr-topbar-home-slot > button svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  :root[data-skin="compact"] .hr-topbar .palette-hint span {
+    font-size: 11px !important;
+    font-weight: 600;
+    letter-spacing: -.02em;
+  }
+
+  :root[data-skin="compact"] .hr-topbar .hr-topbar-home-slot > .hr-topbar-new-session {
+    color: var(--td3-blue) !important;
+  }
+
+  :root[data-skin="compact"] .hr-topbar .hr-topbar-home-slot > .hr-topbar-new-session svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  :root[data-skin="compact"] .hr-topbar .hr-topbar-home-slot > .hr-topbar-search.active {
+    border-color: var(--td3-blue) !important;
+    color: var(--td3-blue) !important;
+  }
+
+  :root[data-skin="compact"] .hr-native-home .hr-native-home-heading {
+    display: none !important;
+  }
+
+  /* Closed: only the All / Live / Attention tabs stay inline. */
+  :root[data-skin="compact"] .hr-native-home .hr-native-home-tools:not(.search-open) > :not(.hr-native-session-filters) {
+    display: none !important;
+  }
+
+  /* Open: search and every filter drop down from the magnifier as one panel. */
+  :root[data-skin="compact"] .hr-native-home .hr-native-home-tools.search-open {
+    position: fixed !important;
+    top: 58px;
+    left: 8px;
+    right: 8px;
+    z-index: 1001;
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px !important;
+    max-height: calc(100dvh - 140px);
+    overflow: auto;
+    padding: 12px !important;
+    border: 1px solid var(--td3-border-strong);
+    border-radius: 18px;
+    background: var(--td3-panel);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .45);
+    transform-origin: top right;
+    animation: hr-search-drop .18s cubic-bezier(.2, .8, .2, 1);
+  }
+
+  @keyframes hr-search-drop {
+    from { opacity: 0; transform: translateY(-6px) scale(.97); }
+  }
+
+  :root[data-skin="compact"] .hr-native-search-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    border: 0;
+    padding: 0;
+    background: rgba(0, 0, 0, .35);
+  }
+
+  /* Bottom navigation: fixed on the main panel; inside a conversation it folds away behind a
+     handle and gives its height back to the composer. */
+  :root[data-skin="compact"] .uw-standalone-host:has(.hr-native-workspace-detail.mobile-open):not(:has(.hr-mobile-nav.peek)) {
+    --hr-mobile-nav-height: 0px !important;
+  }
+
+  :root[data-skin="compact"] .uw-standalone-host:has(.hr-native-workspace-detail.mobile-open) .hr-mobile-nav {
+    transition: transform .22s cubic-bezier(.2, .8, .2, 1);
+  }
+
+  :root[data-skin="compact"] .uw-standalone-host:has(.hr-native-workspace-detail.mobile-open) .hr-mobile-nav:not(.peek) {
+    transform: translateY(calc(100% + 4px));
+    pointer-events: none;
+  }
+
+  :root[data-skin="compact"] .uw-standalone-host:has(.hr-native-workspace-detail.mobile-open) .hr-mobile-nav-handle {
+    position: fixed;
+    left: 50%;
+    bottom: 0;
+    z-index: 60;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    width: 72px;
+    height: 14px;
+    margin-left: -36px;
+    padding: 0 0 4px;
+    border: 0;
+    background: transparent;
+    transition: bottom .22s cubic-bezier(.2, .8, .2, 1);
+  }
+
+  :root[data-skin="compact"] .uw-standalone-host:has(.hr-native-workspace-detail.mobile-open) .hr-mobile-nav-handle.open {
+    bottom: 56px;
+  }
+
+  :root[data-skin="compact"] .hr-mobile-nav-handle i {
+    width: 40px;
+    height: 4px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--td3-text) 45%, transparent);
+  }
+
+  /* New Session opens as a modal over the list instead of pushing it down. */
+  :root[data-skin="compact"] .hr-native-create-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    border: 0;
+    padding: 0;
+    background: rgba(0, 0, 0, .6);
+    animation: hr-fade-in .18s ease;
+  }
+
+  :root[data-skin="compact"] .hr-native-home .hr-native-create-panel {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    top: 50% !important;
+    z-index: 1001 !important;
+    max-height: calc(100dvh - 48px);
+    overflow: auto;
+    margin: 0 !important;
+    border: 1px solid var(--td3-border-strong) !important;
+    border-radius: 20px !important;
+    background: var(--td3-panel) !important;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, .5) !important;
+    transform: translateY(-50%);
+    animation: hr-modal-in .2s cubic-bezier(.2, .8, .2, 1);
+  }
+
+  @keyframes hr-fade-in {
+    from { opacity: 0; }
+  }
+
+  @keyframes hr-modal-in {
+    from { opacity: 0; transform: translateY(-46%) scale(.97); }
+  }
+
+  /* Machines: one compact card per machine — name with icon actions on the first row, address
+     and folder on small lines, harnesses as logo chips. */
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-card {
+    position: relative !important;
+    display: block !important;
+    padding: 12px 12px 12px 14px !important;
+    border-radius: 16px !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-main {
+    display: flex !important;
+    flex-direction: column;
+    gap: 4px !important;
+    padding-right: 124px !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-main > strong {
+    font-size: 16px !important;
+    line-height: 1.25 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-main > span,
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-connection-state {
+    margin: 0 !important;
+    font-size: 12px !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-main > span {
+    color: var(--td3-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-actions {
+    position: absolute !important;
+    top: 8px !important;
+    right: 8px !important;
+    left: auto !important;
+    width: auto !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 4px !important;
+    margin: 0 !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-actions .uw-manager-button:has(.uw-button-icon) {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    border-radius: 999px !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-button-icon {
+    display: block;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-actions .uw-button-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  /* Removal confirmation needs room for its question; it takes the full width under the card. */
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-actions:has(.uw-machine-confirm) {
+    position: static !important;
+    flex-wrap: wrap !important;
+    margin-top: 10px !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-folder-summary {
+    margin: 2px 0 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-folder-summary .uw-machine-section-label {
+    display: none !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-folder-summary ul {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-folder-summary code {
+    font-size: 12px !important;
+    color: var(--td3-muted);
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-folder-summary code::before {
+    content: "📁 ";
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-harness-list {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 6px !important;
+    margin: 8px -112px 0 0 !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-harness {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 6px !important;
+    width: auto !important;
+    min-height: 30px !important;
+    padding: 0 10px 0 6px !important;
+    border-radius: 999px !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-harness-icon {
+    display: block;
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-harness:has(.uw-machine-harness-icon) > i,
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-harness > small {
+    display: none !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-harness > strong {
+    font-size: 12px !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-harness:has(> i.unavailable) {
+    opacity: .45;
+  }
+
+  /* Tighter machine card: name and address share a line, status and folder share the next, and
+     the harness chips run on one row. */
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-card {
+    padding: 10px 10px 10px 12px !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-main {
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 8px !important;
+    row-gap: 3px !important;
+    padding-right: 120px !important;
+    min-height: 36px;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-main > strong {
+    font-size: 15px !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-main > span {
+    font-size: 11px !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-connection-state {
+    flex-basis: 100%;
+    font-size: 11px !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-connection-state:has(+ .uw-machine-folder-summary) {
+    flex-basis: auto;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-folder-summary {
+    flex: 1 1 0 !important;
+    width: auto !important;
+    margin: 0 !important;
+    min-width: 0;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-folder-summary li,
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-folder-summary code {
+    font-size: 11px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-harness-list {
+    flex: 0 0 calc(100% + 120px) !important;
+    flex-wrap: nowrap !important;
+    gap: 5px !important;
+    margin: 6px -120px 0 0 !important;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-harness {
+    flex: none;
+    min-height: 26px !important;
+    padding: 0 9px 0 5px !important;
+    gap: 5px !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-harness-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-harness > strong {
+    font-size: 11px !important;
+    white-space: nowrap;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-actions .uw-manager-button:has(.uw-button-icon) {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+  }
+
+  /* Online needs no sentence — the chips already list the agents. A green dot before the name says
+     it; checking and offline keep their text. */
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-connection-state.online {
+    display: none !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-card:has(.uw-machine-connection-state.online) .uw-machine-config-main > strong::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin: 0 7px 1px 0;
+    border-radius: 999px;
+    background: var(--td3-green, #4ade80);
+    vertical-align: middle;
+  }
+
+  /* Only the first row (name + address) has to clear the action buttons; the rows below it use the
+     card's full width. */
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-card .uw-machine-config-main {
+    padding-right: 0 !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-main > span {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-right: 108px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-card .uw-machine-folder-summary {
+    flex: 0 0 100% !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-card .uw-machine-harness-list {
+    flex: 0 0 100% !important;
+    margin: 4px 0 0 !important;
+  }
+
+  /* An online harness chip pulses as a whole: its border and background breathe green. Offline
+     chips stay still and dimmed. */
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-harness:has(> i:is(.available, .configured)) {
+    border: 1px solid rgba(74, 222, 128, .55) !important;
+    animation: hr-agent-online 2s ease-in-out infinite;
+  }
+
+  @keyframes hr-agent-online {
+    0%, 100% {
+      background-color: rgba(74, 222, 128, .06);
+      border-color: rgba(74, 222, 128, .35);
+      box-shadow: 0 0 0 0 rgba(74, 222, 128, 0);
+    }
+    50% {
+      background-color: rgba(74, 222, 128, .18);
+      border-color: rgba(74, 222, 128, .9);
+      box-shadow: 0 0 10px 0 rgba(74, 222, 128, .35);
+    }
+  }
+
+  /* The name alone owns the first row and stops before the action buttons; address and folder
+     share the second row at full width, so nothing slides under the buttons on narrow phones. */
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-card .uw-machine-config-main > strong {
+    flex: 0 0 calc(100% - 124px) !important;
+    max-width: calc(100% - 124px) !important;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-card .uw-machine-config-main > span {
+    flex: 0 1 auto !important;
+    margin-right: 0 !important;
+    max-width: 55%;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-card .uw-machine-folder-summary {
+    flex: 1 1 0 !important;
+  }
+
+  /* Project folders are not shown on the machine card; the address takes the second row. */
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-card .uw-machine-folder-summary {
+    display: none !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-card .uw-machine-config-main > span {
+    flex: 0 0 100% !important;
+    max-width: none;
+  }
+
+  /* Editing or adding a machine opens as a modal over the list instead of replacing it. */
+  :root[data-skin="compact"] .uw-machine-manager-body:has(> .uw-machine-editor) > .uw-machine-overview[hidden] {
+    display: block !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-manager-body:has(> .uw-machine-editor)::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, .6);
+    animation: hr-fade-in .18s ease;
+  }
+
+  :root[data-skin="compact"] .uw-machine-manager-body > .uw-machine-editor {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+    max-width: none !important;
+    top: 50% !important;
+    z-index: 1001 !important;
+    max-height: calc(100dvh - 48px);
+    overflow: auto;
+    margin: 0 !important;
+    padding: 16px !important;
+    border: 1px solid var(--td3-border-strong) !important;
+    border-radius: 20px !important;
+    background: var(--td3-panel) !important;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, .5) !important;
+    transform: translateY(-50%);
+    animation: hr-modal-in .2s cubic-bezier(.2, .8, .2, 1);
+  }
+
+  /* One top bar everywhere: Machines and Settings open under the Sessions top bar instead of
+     covering it with headers of their own. Search and "+" act on Sessions, so they step aside on
+     those pages. */
+  :root[data-skin="compact"] .uw-standalone-host {
+    --hr-compact-topbar-height: 56px;
+  }
+
+  :root[data-skin="compact"] .uw-standalone-host .uw-manager-backdrop,
+  :root[data-skin="compact"] .uw-standalone-host .hr-session-settings-backdrop,
+  :root[data-skin="compact"] .uw-standalone-host .hr-session-settings-page {
+    inset: var(--hr-compact-topbar-height) 0 var(--hr-mobile-nav-height) 0 !important;
+  }
+
+  :root[data-skin="compact"] .uw-standalone-host:has(.uw-manager-backdrop, .hr-session-settings-backdrop) .hr-topbar {
+    display: grid !important;
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--hr-compact-topbar-height) !important;
+    z-index: 1002 !important;
+    background: var(--td3-bg) !important;
+  }
+
+  :root[data-skin="compact"] .uw-standalone-host .uw-machine-manager-header,
+  :root[data-skin="compact"] .uw-standalone-host .hr-session-settings-page > header {
+    display: none !important;
+  }
+
+  :root[data-skin="compact"] .uw-standalone-host:has(.uw-manager-backdrop, .hr-session-settings-backdrop) .hr-topbar-home-action {
+    display: none !important;
+  }
+
+  /* While the agent works the card's controls are locked: show it instead of ignoring taps. */
+  :root[data-skin="compact"] .tdw-effort-card.locked :is(.tdw-effort-slider, .tdw-effort-card-agent, .tdw-effort-card-title .tdw-model-picker, .tdw-effort-card-reset) {
+    opacity: .4;
+    filter: grayscale(.6);
+  }
+
+  :root[data-skin="compact"] .tdw-effort-card.locked .tdw-effort-card-note {
+    color: var(--td3-yellow-text, #e3b341);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root[data-skin="compact"] .tdw-effort-fill,
+    :root[data-skin="compact"] .tdw-effort-knob,
+    :root[data-skin="compact"] .tdw-effort-dots i,
+    :root[data-skin="compact"] .tdw-spin-once,
+    :root[data-skin="compact"] .hr-native-home-tools.search-open,
+    :root[data-skin="compact"] .hr-native-create-panel,
+    :root[data-skin="compact"] .uw-machine-overview .uw-machine-harness,
+    :root[data-skin="compact"] .uw-machine-manager-body > .uw-machine-editor,
+    :root[data-skin="compact"] .hr-native-create-backdrop,
+    :root[data-skin="compact"] .hr-mobile-nav,
+    :root[data-skin="compact"] .hr-mobile-nav-handle {
+      transition: none;
+      animation: none;
+    }
+  }
+}
+
+/* Native dropdown menus follow the theme: without a colour scheme the desktop popup keeps a white
+   background while the skin's select text is white, so dark-theme menus read white on white. */
+:root[data-skin="compact"] select {
+  color-scheme: light;
+}
+
+:root[data-skin="compact"][data-theme="dark"] select {
+  color-scheme: dark;
+}
+
+:root[data-skin="compact"] select option,
+:root[data-skin="compact"] select optgroup {
+  background-color: var(--td3-panel, #ffffff);
+  color: var(--td3-text, #111827);
+}

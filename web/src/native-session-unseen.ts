@@ -33,6 +33,21 @@ export function nextFinishedKeys(
   return next
 }
 
+/**
+ * How many marked Sessions the published count may report. Hidden Sessions keep their mark in
+ * `finished` for when they are shown again; they only leave this count while they are hidden.
+ */
+export function countVisibleFinishedKeys(
+  finished: ReadonlySet<string>,
+  hidden: ReadonlySet<string>,
+  hiddenShown: boolean
+): number {
+  if (hiddenShown || hidden.size === 0) return finished.size
+  let visible = 0
+  for (const key of finished) if (!hidden.has(key)) visible += 1
+  return visible
+}
+
 /** The marked Sessions once the user has clicked `key`. */
 export function withoutFinishedKey(finished: ReadonlySet<string>, key: string): ReadonlySet<string> {
   if (!finished.has(key)) return finished

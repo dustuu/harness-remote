@@ -1,6 +1,6 @@
 export type LanguageCode = 'en' | 'it' | 'zh-TW' | 'zh-CN' | 'pt-BR'
 
-type TranslationKey =
+export type TranslationKey =
   | 'app.title'
   | 'notification.title'
   | 'notification.body'
@@ -51,6 +51,52 @@ type TranslationKey =
   | 'settings.updateError'
   | 'settings.updateDownload'
   | 'settings.updateCheck'
+  | 'settings.skin'
+  | 'settings.skinCompact'
+  | 'settings.skinClassic'
+  | 'settings.recents'
+  | 'settings.recentsOn'
+  | 'settings.recentsOff'
+  | 'sf.recentGroup'
+  | 'settings.hideAuto'
+  | 'settings.aboutSkins'
+  | 'settings.aboutSkinsCount'
+  | 'settings.aboutSkinsHint'
+  | 'settings.skinUse'
+  | 'settings.skinInUse'
+  | 'settings.skinClassicDescription'
+  | 'settings.skinCompactDescription'
+  | 'settings.about'
+  | 'settings.aboutVersion'
+  | 'settings.aboutCreator'
+  | 'settings.aboutRepository'
+  | 'settings.aboutLicense'
+  | 'settings.aboutContributors'
+  | 'settings.aboutSkinBy'
+  | 'settings.hideColumnText'
+  | 'settings.hideColumnActions'
+  | 'settings.hideRules'
+  | 'settings.hideRulesCount'
+  | 'settings.hideSave'
+  | 'settings.hideCancelEdit'
+  | 'settings.hideEdit'
+  | 'settings.hideHint'
+  | 'settings.hideContains'
+  | 'settings.hideAdd'
+  | 'settings.hidePlaceholder'
+  | 'settings.hideRemove'
+  | 'sf.showHidden'
+  | 'sf.hideHidden'
+  | 'card.effort'
+  | 'card.default'
+  | 'card.reset'
+  | 'card.noEffort'
+  | 'card.locked'
+  | 'card.title'
+  | 'card.harness'
+  | 'card.searchModels'
+  | 'action.dismiss'
+  | 'sf.recentGroupHint'
   | 'settings.thisComputer'
   | 'settings.projectFolders'
   | 'settings.projectFoldersHint'
@@ -383,9 +429,13 @@ type TranslationKey =
   | 'sf.newSession'
   | 'sf.searchSessions'
   | 'sf.searchSessionsLabel'
+  | 'sf.searchMachines'
+  | 'sf.connectedShort'
   | 'sf.filterSessions'
   | 'sf.filterByMachine'
   | 'sf.filterByAgent'
+  | 'sf.showAllAgents'
+  | 'sf.showFewerAgents'
   | 'sf.allMachinesCount'
   | 'sf.allHarnesses'
   | 'sf.filterAll'
@@ -420,6 +470,7 @@ type TranslationKey =
   | 'sf.statusReady'
   | 'sf.statusAttention'
   | 'sf.statusStopped'
+  | 'sf.statusFresh'
   | 'sf.statusRetrying'
   | 'sf.statusWaiting'
   | 'sf.untitledSession'
@@ -722,6 +773,52 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'settings.updateError': 'Could not check for updates.',
     'settings.updateDownload': 'View download',
     'settings.updateCheck': 'Check again',
+    'settings.skin': 'Skin',
+    'settings.skinCompact': 'Mahurley',
+    'settings.skinClassic': 'Classic',
+    'settings.recents': 'Recent group',
+    'settings.recentsOn': 'On',
+    'settings.recentsOff': 'Off',
+    'sf.recentGroup': 'Recent',
+    'settings.hideAuto': 'Hide automatic Sessions',
+    'settings.aboutSkins': 'Skins',
+    'settings.aboutSkinsCount': '{count} skins',
+    'settings.aboutSkinsHint': 'Pick the look of the app. Anyone can contribute a skin; it shows up here with its author.',
+    'settings.skinUse': 'Use',
+    'settings.skinInUse': 'In use',
+    'settings.skinClassicDescription': 'The original Harness Remote layout.',
+    'settings.skinCompactDescription': 'Phone-first: one-row header, model and effort card, live status, Recent and hidden helper Sessions. Applies on phone-width screens; wider windows keep Classic.',
+    'settings.about': 'About',
+    'settings.aboutVersion': 'Version',
+    'settings.aboutCreator': 'Creator',
+    'settings.aboutRepository': 'Repository',
+    'settings.aboutLicense': 'License',
+    'settings.aboutContributors': 'Contributors',
+    'settings.aboutSkinBy': 'by {name}',
+    'settings.hideColumnText': 'Text the title contains',
+    'settings.hideColumnActions': 'Actions',
+    'settings.hideRules': 'Hide rules',
+    'settings.hideRulesCount': '{count} rules',
+    'settings.hideSave': 'Save',
+    'settings.hideCancelEdit': 'Cancel',
+    'settings.hideEdit': 'Edit rule',
+    'settings.hideHint': 'Sessions whose title contains one of these texts leave the list. Nothing is deleted; case and accents are ignored.',
+    'settings.hideContains': 'Contains',
+    'settings.hideAdd': 'Add',
+    'settings.hidePlaceholder': 'Title text…',
+    'settings.hideRemove': 'Remove rule',
+    'sf.showHidden': 'Show hidden ({count})',
+    'sf.hideHidden': 'Hide them again ({count})',
+    'card.effort': 'Effort',
+    'card.default': 'Default',
+    'card.reset': 'Reset to default',
+    'card.noEffort': 'This model has no effort levels.',
+    'card.locked': '{agent} is working — model and effort can change when it finishes.',
+    'card.title': 'Model and effort',
+    'card.harness': 'Harness',
+    'card.searchModels': 'Search models',
+    'action.dismiss': 'Dismiss',
+    'sf.recentGroupHint': 'Last used, across Projects',
     'settings.thisComputer': 'This computer',
     'settings.projectFolders': 'Project folders',
     'settings.projectFoldersHint': 'Choose folders available when creating a local Session. With no folders listed, your home folder is used.',
@@ -1033,9 +1130,13 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'sf.newSession': 'New Session',
     'sf.searchSessions': 'Search sessions',
     'sf.searchSessionsLabel': 'Search Sessions',
+    'sf.searchMachines': 'Search machines',
+    'sf.connectedShort': 'Connected',
     'sf.filterSessions': 'Filter Sessions',
     'sf.filterByMachine': 'Filter by machine',
     'sf.filterByAgent': 'Filter by coding agent',
+    'sf.showAllAgents': 'Show all {count} agents',
+    'sf.showFewerAgents': 'Show fewer agents',
     'sf.allMachinesCount': 'All machines · {count}',
     'sf.allHarnesses': 'All harnesses',
     'sf.filterAll': 'All',
@@ -1070,6 +1171,7 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'sf.statusReady': 'Ready',
     'sf.statusAttention': 'Needs attention',
     'sf.statusStopped': 'Stopped',
+    'sf.statusFresh': 'Just finished',
     'sf.statusRetrying': 'Retrying',
     'sf.statusWaiting': 'Waiting',
     'sf.untitledSession': 'Untitled {agent} Session',
@@ -1372,6 +1474,52 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'settings.updateError': 'Impossibile controllare gli aggiornamenti.',
     'settings.updateDownload': 'Apri il download',
     'settings.updateCheck': 'Controlla di nuovo',
+    'settings.skin': 'Skin',
+    'settings.skinCompact': 'Mahurley',
+    'settings.skinClassic': 'Classica',
+    'settings.recents': 'Gruppo recenti',
+    'settings.recentsOn': 'Attivo',
+    'settings.recentsOff': 'Disattivo',
+    'sf.recentGroup': 'Recenti',
+    'settings.hideAuto': 'Nascondi Sessioni automatiche',
+    'settings.aboutSkins': 'Aspetti',
+    'settings.aboutSkinsCount': '{count} aspetti',
+    'settings.aboutSkinsHint': 'Scegli l’aspetto dell’app. Chiunque può contribuire un aspetto; compare qui con il suo autore.',
+    'settings.skinUse': 'Usa',
+    'settings.skinInUse': 'In uso',
+    'settings.skinClassicDescription': 'Il layout originale di Harness Remote.',
+    'settings.skinCompactDescription': 'Pensato per il telefono: intestazione su una riga, scheda modello e impegno, stato dal vivo, Recenti e Sessioni di supporto nascoste. Si applica su schermi larghi come un telefono; le finestre più larghe restano in Classica.',
+    'settings.about': 'Informazioni',
+    'settings.aboutVersion': 'Versione',
+    'settings.aboutCreator': 'Autore',
+    'settings.aboutRepository': 'Repository',
+    'settings.aboutLicense': 'Licenza',
+    'settings.aboutContributors': 'Contributori',
+    'settings.aboutSkinBy': 'di {name}',
+    'settings.hideColumnText': 'Testo contenuto nel titolo',
+    'settings.hideColumnActions': 'Azioni',
+    'settings.hideRules': 'Regole di occultamento',
+    'settings.hideRulesCount': '{count} regole',
+    'settings.hideSave': 'Salva',
+    'settings.hideCancelEdit': 'Annulla',
+    'settings.hideEdit': 'Modifica regola',
+    'settings.hideHint': 'Le Sessioni il cui titolo contiene uno di questi testi escono dall’elenco. Nulla viene eliminato; maiuscole e accenti sono ignorati.',
+    'settings.hideContains': 'Contiene',
+    'settings.hideAdd': 'Aggiungi',
+    'settings.hidePlaceholder': 'Testo del titolo…',
+    'settings.hideRemove': 'Rimuovi regola',
+    'sf.showHidden': 'Mostra nascoste ({count})',
+    'sf.hideHidden': 'Nascondi di nuovo ({count})',
+    'card.effort': 'Impegno',
+    'card.default': 'Predefinito',
+    'card.reset': 'Ripristina predefinito',
+    'card.noEffort': 'Questo modello non ha livelli di impegno.',
+    'card.locked': '{agent} sta lavorando — modello e impegno si possono cambiare quando finisce.',
+    'card.title': 'Modello e impegno',
+    'card.harness': 'Harness',
+    'card.searchModels': 'Cerca modelli',
+    'action.dismiss': 'Chiudi',
+    'sf.recentGroupHint': 'Usate di recente, da tutti i Progetti',
     'settings.thisComputer': 'Questo computer',
     'settings.projectFolders': 'Cartelle dei progetti',
     'settings.projectFoldersHint': 'Scegli le cartelle disponibili quando crei una Sessione locale. Se non elenchi cartelle, viene usata la cartella home.',
@@ -1683,9 +1831,13 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'sf.newSession': 'Nuova sessione',
     'sf.searchSessions': 'Cerca sessioni',
     'sf.searchSessionsLabel': 'Cerca sessioni',
+    'sf.searchMachines': 'Cerca macchine',
+    'sf.connectedShort': 'Connesso',
     'sf.filterSessions': 'Filtra sessioni',
     'sf.filterByMachine': 'Filtra per macchina',
     'sf.filterByAgent': 'Filtra per coding agent',
+    'sf.showAllAgents': 'Mostra tutti i {count} agenti',
+    'sf.showFewerAgents': 'Mostra meno agenti',
     'sf.allMachinesCount': 'Tutte le macchine · {count}',
     'sf.allHarnesses': 'Tutti gli harness',
     'sf.filterAll': 'Tutte',
@@ -1713,13 +1865,14 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'sf.noSessionsOnMachine': 'Nessuna sessione nativa trovata su questa macchina.',
     'sf.attentionCount': '{count} da vedere',
     'sf.liveCount': '{count} attive',
-    'sf.readyCount': '{count} pronte',
+    'sf.readyCount': 'pronte: {count}',
     'sf.unseenResult': 'nuovo risultato',
     'sf.offline': 'Offline',
     'sf.statusWorking': 'In lavorazione',
     'sf.statusReady': 'Pronta',
     'sf.statusAttention': 'Richiede attenzione',
     'sf.statusStopped': 'Interrotta',
+    'sf.statusFresh': 'Appena finita',
     'sf.statusRetrying': 'Nuovo tentativo',
     'sf.statusWaiting': 'In attesa',
     'sf.untitledSession': 'Sessione {agent} senza titolo',
@@ -2022,6 +2175,52 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'settings.updateError': '無法檢查更新。',
     'settings.updateDownload': '查看下載',
     'settings.updateCheck': '重新檢查',
+    'settings.skin': '外觀樣式',
+    'settings.skinCompact': 'Mahurley',
+    'settings.skinClassic': '經典',
+    'settings.recents': '最近群組',
+    'settings.recentsOn': '開啟',
+    'settings.recentsOff': '關閉',
+    'sf.recentGroup': '最近',
+    'settings.hideAuto': '隱藏自動工作階段',
+    'settings.aboutSkins': '外觀',
+    'settings.aboutSkinsCount': '{count} 種外觀',
+    'settings.aboutSkinsHint': '選擇 App 的外觀。任何人都能貢獻外觀，會連同作者顯示在這裡。',
+    'settings.skinUse': '使用',
+    'settings.skinInUse': '使用中',
+    'settings.skinClassicDescription': 'Harness Remote 原始版面。',
+    'settings.skinCompactDescription': '以手機為主：單列標題、模型與推理強度卡片、即時狀態、最近使用與隱藏輔助工作階段。僅在手機寬度的畫面套用；較寬的視窗維持經典樣式。',
+    'settings.about': '關於',
+    'settings.aboutVersion': '版本',
+    'settings.aboutCreator': '作者',
+    'settings.aboutRepository': '程式庫',
+    'settings.aboutLicense': '授權',
+    'settings.aboutContributors': '貢獻者',
+    'settings.aboutSkinBy': '由 {name} 設計',
+    'settings.hideColumnText': '標題包含的文字',
+    'settings.hideColumnActions': '操作',
+    'settings.hideRules': '隱藏規則',
+    'settings.hideRulesCount': '{count} 條規則',
+    'settings.hideSave': '儲存',
+    'settings.hideCancelEdit': '取消',
+    'settings.hideEdit': '編輯規則',
+    'settings.hideHint': '標題包含這些文字的工作階段會從清單隱藏，不會被刪除；不分大小寫與重音。',
+    'settings.hideContains': '包含',
+    'settings.hideAdd': '新增',
+    'settings.hidePlaceholder': '標題文字…',
+    'settings.hideRemove': '移除規則',
+    'sf.showHidden': '顯示已隱藏（{count}）',
+    'sf.hideHidden': '再次隱藏（{count}）',
+    'card.effort': '推理強度',
+    'card.default': '預設',
+    'card.reset': '重設為預設',
+    'card.noEffort': '此模型沒有推理強度等級。',
+    'card.locked': '{agent} 正在工作，完成後才能變更模型與推理強度。',
+    'card.title': '模型與推理強度',
+    'card.harness': 'Harness',
+    'card.searchModels': '搜尋模型',
+    'action.dismiss': '關閉',
+    'sf.recentGroupHint': '所有專案中最近使用',
     'settings.thisComputer': '這台電腦',
     'settings.projectFolders': '專案資料夾',
     'settings.projectFoldersHint': '選擇建立本機工作階段時可用的資料夾。若未列出資料夾，會使用您的家目錄。',
@@ -2333,9 +2532,13 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'sf.newSession': '新增工作階段',
     'sf.searchSessions': '搜尋工作階段',
     'sf.searchSessionsLabel': '搜尋工作階段',
+    'sf.searchMachines': '搜尋機器',
+    'sf.connectedShort': '已連線',
     'sf.filterSessions': '篩選工作階段',
     'sf.filterByMachine': '依機器篩選',
     'sf.filterByAgent': '依編碼代理篩選',
+    'sf.showAllAgents': '顯示全部 {count} 個代理',
+    'sf.showFewerAgents': '顯示較少代理',
     'sf.allMachinesCount': '所有機器 · {count}',
     'sf.allHarnesses': '所有 harness',
     'sf.filterAll': '全部',
@@ -2370,6 +2573,7 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'sf.statusReady': '就緒',
     'sf.statusAttention': '需要注意',
     'sf.statusStopped': '已停止',
+    'sf.statusFresh': '剛完成',
     'sf.statusRetrying': '重試中',
     'sf.statusWaiting': '等待中',
     'sf.untitledSession': '未命名的 {agent} 工作階段',
@@ -2672,6 +2876,52 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'settings.updateError': '无法检查更新。',
     'settings.updateDownload': '查看下载',
     'settings.updateCheck': '重新检查',
+    'settings.skin': '外观样式',
+    'settings.skinCompact': 'Mahurley',
+    'settings.skinClassic': '经典',
+    'settings.recents': '最近分组',
+    'settings.recentsOn': '开启',
+    'settings.recentsOff': '关闭',
+    'sf.recentGroup': '最近',
+    'settings.hideAuto': '隐藏自动会话',
+    'settings.aboutSkins': '外观',
+    'settings.aboutSkinsCount': '{count} 种外观',
+    'settings.aboutSkinsHint': '选择 App 的外观。任何人都能贡献外观，会连同作者显示在这里。',
+    'settings.skinUse': '使用',
+    'settings.skinInUse': '使用中',
+    'settings.skinClassicDescription': 'Harness Remote 原始布局。',
+    'settings.skinCompactDescription': '以手机为主：单行标题、模型与推理强度卡片、实时状态、最近使用与隐藏辅助会话。仅在手机宽度的屏幕上应用；较宽的窗口保持经典样式。',
+    'settings.about': '关于',
+    'settings.aboutVersion': '版本',
+    'settings.aboutCreator': '作者',
+    'settings.aboutRepository': '代码库',
+    'settings.aboutLicense': '许可证',
+    'settings.aboutContributors': '贡献者',
+    'settings.aboutSkinBy': '由 {name} 设计',
+    'settings.hideColumnText': '标题包含的文字',
+    'settings.hideColumnActions': '操作',
+    'settings.hideRules': '隐藏规则',
+    'settings.hideRulesCount': '{count} 条规则',
+    'settings.hideSave': '保存',
+    'settings.hideCancelEdit': '取消',
+    'settings.hideEdit': '编辑规则',
+    'settings.hideHint': '标题包含这些文字的会话会从列表隐藏，不会被删除；不区分大小写与重音。',
+    'settings.hideContains': '包含',
+    'settings.hideAdd': '添加',
+    'settings.hidePlaceholder': '标题文字…',
+    'settings.hideRemove': '移除规则',
+    'sf.showHidden': '显示已隐藏（{count}）',
+    'sf.hideHidden': '再次隐藏（{count}）',
+    'card.effort': '推理强度',
+    'card.default': '默认',
+    'card.reset': '重置为默认',
+    'card.noEffort': '此模型没有推理强度等级。',
+    'card.locked': '{agent} 正在工作，完成后才能更改模型和推理强度。',
+    'card.title': '模型与推理强度',
+    'card.harness': 'Harness',
+    'card.searchModels': '搜索模型',
+    'action.dismiss': '关闭',
+    'sf.recentGroupHint': '所有项目中最近使用',
     'settings.thisComputer': '这台电脑',
     'settings.projectFolders': '项目文件夹',
     'settings.projectFoldersHint': '选择创建本地会话时可用的文件夹。未列出文件夹时，会使用您的主目录。',
@@ -2983,9 +3233,13 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'sf.newSession': '新建会话',
     'sf.searchSessions': '搜索会话',
     'sf.searchSessionsLabel': '搜索会话',
+    'sf.searchMachines': '搜索机器',
+    'sf.connectedShort': '已连接',
     'sf.filterSessions': '筛选会话',
     'sf.filterByMachine': '按机器筛选',
     'sf.filterByAgent': '按编码代理筛选',
+    'sf.showAllAgents': '显示全部 {count} 个代理',
+    'sf.showFewerAgents': '显示较少代理',
     'sf.allMachinesCount': '所有机器 · {count}',
     'sf.allHarnesses': '所有 harness',
     'sf.filterAll': '全部',
@@ -3020,6 +3274,7 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'sf.statusReady': '就绪',
     'sf.statusAttention': '需要注意',
     'sf.statusStopped': '已停止',
+    'sf.statusFresh': '刚完成',
     'sf.statusRetrying': '重试中',
     'sf.statusWaiting': '等待中',
     'sf.untitledSession': '未命名的 {agent} 会话',
@@ -3322,6 +3577,52 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'settings.updateError': 'Não foi possível verificar atualizações.',
     'settings.updateDownload': 'Ver download',
     'settings.updateCheck': 'Verificar novamente',
+    'settings.skin': 'Visual',
+    'settings.skinCompact': 'Mahurley',
+    'settings.skinClassic': 'Clássico',
+    'settings.recents': 'Recentes',
+    'settings.recentsOn': 'Ligado',
+    'settings.recentsOff': 'Desligado',
+    'sf.recentGroup': 'Recentes',
+    'settings.hideAuto': 'Ocultar sessões automáticas',
+    'settings.aboutSkins': 'Visuais',
+    'settings.aboutSkinsCount': '{count} visuais',
+    'settings.aboutSkinsHint': 'Escolha a aparência do app. Qualquer pessoa pode contribuir com um visual; ele aparece aqui com o autor.',
+    'settings.skinUse': 'Usar',
+    'settings.skinInUse': 'Em uso',
+    'settings.skinClassicDescription': 'O layout original do Harness Remote.',
+    'settings.skinCompactDescription': 'Pensado para o celular: topo em uma linha, cartão de modelo e esforço, status ao vivo, Recentes e sessões auxiliares ocultas. Vale em telas com largura de celular; janelas mais largas mantêm o Clássico.',
+    'settings.about': 'Sobre',
+    'settings.aboutVersion': 'Versão',
+    'settings.aboutCreator': 'Criador',
+    'settings.aboutRepository': 'Repositório',
+    'settings.aboutLicense': 'Licença',
+    'settings.aboutContributors': 'Contribuidores',
+    'settings.aboutSkinBy': 'por {name}',
+    'settings.hideColumnText': 'Texto que o título contém',
+    'settings.hideColumnActions': 'Ações',
+    'settings.hideRules': 'Regras de ocultar',
+    'settings.hideRulesCount': '{count} regras',
+    'settings.hideSave': 'Salvar',
+    'settings.hideCancelEdit': 'Cancelar',
+    'settings.hideEdit': 'Editar regra',
+    'settings.hideHint': 'Sessões cujo título contém um destes textos somem da lista. Nada é apagado; maiúsculas e acentos não importam.',
+    'settings.hideContains': 'Contém',
+    'settings.hideAdd': 'Adicionar',
+    'settings.hidePlaceholder': 'Texto do título…',
+    'settings.hideRemove': 'Remover regra',
+    'sf.showHidden': 'Mostrar ocultas ({count})',
+    'sf.hideHidden': 'Esconder de novo ({count})',
+    'card.effort': 'Esforço',
+    'card.default': 'Padrão',
+    'card.reset': 'Voltar ao padrão',
+    'card.noEffort': 'Este modelo não tem níveis de esforço.',
+    'card.locked': '{agent} está trabalhando — modelo e esforço podem mudar quando terminar.',
+    'card.title': 'Modelo e esforço',
+    'card.harness': 'Harness',
+    'card.searchModels': 'Buscar modelos',
+    'action.dismiss': 'Dispensar',
+    'sf.recentGroupHint': 'Usadas por último, de todos os Projetos',
     'settings.thisComputer': 'Este computador',
     'settings.projectFolders': 'Pastas de projeto',
     'settings.projectFoldersHint': 'Escolha as pastas disponíveis ao criar uma Sessão local. Sem nenhuma pasta listada, a pasta pessoal (home) é usada.',
@@ -3633,9 +3934,13 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'sf.newSession': 'Nova Sessão',
     'sf.searchSessions': 'Pesquisar sessões',
     'sf.searchSessionsLabel': 'Pesquisar Sessões',
+    'sf.searchMachines': 'Buscar máquinas',
+    'sf.connectedShort': 'Conectado',
     'sf.filterSessions': 'Filtrar Sessões',
     'sf.filterByMachine': 'Filtrar por máquina',
     'sf.filterByAgent': 'Filtrar por agente de código',
+    'sf.showAllAgents': 'Mostrar os {count} agentes',
+    'sf.showFewerAgents': 'Mostrar menos agentes',
     'sf.allMachinesCount': 'Todas as máquinas · {count}',
     'sf.allHarnesses': 'Todos os harnesses',
     'sf.filterAll': 'Todas',
@@ -3663,13 +3968,14 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'sf.noSessionsOnMachine': 'Nenhuma Sessão nativa descoberta nesta máquina.',
     'sf.attentionCount': '{count} em atenção',
     'sf.liveCount': '{count} ao vivo',
-    'sf.readyCount': '{count} prontas',
+    'sf.readyCount': 'prontas: {count}',
     'sf.unseenResult': 'novo resultado',
     'sf.offline': 'Offline',
     'sf.statusWorking': 'Em andamento',
     'sf.statusReady': 'Pronta',
     'sf.statusAttention': 'Requer atenção',
     'sf.statusStopped': 'Parada',
+    'sf.statusFresh': 'Acabou agora',
     'sf.statusRetrying': 'Tentando novamente',
     'sf.statusWaiting': 'Aguardando',
     'sf.untitledSession': 'Sessão {agent} sem título',
@@ -3899,7 +4205,7 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'sf.waitingForInput': 'Aguardando sua entrada',
     'sf.inputRequired': 'Sua entrada é necessária para o agente continuar',
     'sf.workingOnMessage': 'O agente está trabalhando na sua última mensagem',
-    'sf.loadingIntoController': 'Carregando Sessão…'
+    'sf.loadingIntoController': 'Carregando Sessão…',
   }
 }
 

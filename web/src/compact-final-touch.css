@@ -1,0 +1,1021 @@
+/* Final polish for the compact Session list (phones). Everything lives in this one file and is
+   gated by the compact skin: deleting its import in main.tsx (and controls-preview.ts) reverts it.
+   Motion is transform/opacity only and stops for reduced-motion users. */
+
+@media (max-width: 780px) {
+  /* Machine heading: one tight line, address muted beside the name. */
+  :root[data-skin="compact"] .hr-native-machine-heading {
+    min-height: 44px !important;
+    padding: 6px 14px !important;
+  }
+
+  :root[data-skin="compact"] .hr-native-machine-identity strong {
+    font-size: 15px !important;
+  }
+
+  :root[data-skin="compact"] .hr-native-machine-identity small {
+    font-size: 11px !important;
+    opacity: .7;
+  }
+
+  /* Status tabs: a slimmer segmented control; empty counters fade. */
+  :root[data-skin="compact"] .hr-native-session-filters {
+    min-height: 38px !important;
+    padding: 3px !important;
+    border-radius: 12px !important;
+  }
+
+  :root[data-skin="compact"] .hr-native-session-filters button {
+    min-height: 32px !important;
+    border-radius: 9px !important;
+    font-size: 13px !important;
+  }
+
+  :root[data-skin="compact"] .hr-native-session-filters button:not(.active) b {
+    opacity: .55;
+  }
+
+  /* Project groups read as one inset list per machine: a single rounded block, hairline dividers. */
+  :root[data-skin="compact"] .hr-native-machine-group > .hr-native-project-group {
+    margin: 0 10px !important;
+    border: 1px solid var(--td3-border-strong);
+    border-width: 0 1px;
+    box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--td3-border-strong) 55%, transparent);
+    background: var(--td3-panel);
+    overflow: clip;
+  }
+
+  :root[data-skin="compact"] .hr-native-machine-group > .hr-native-machine-heading + .hr-native-project-group {
+    border-top-width: 1px;
+    border-radius: 16px 16px 0 0;
+  }
+
+  :root[data-skin="compact"] .hr-native-machine-group > .hr-native-project-group:last-of-type {
+    margin-bottom: 14px !important;
+    border-bottom-width: 1px;
+    box-shadow: none;
+    border-radius: 0 0 16px 16px;
+  }
+
+  :root[data-skin="compact"] .hr-native-machine-group > .hr-native-machine-heading + .hr-native-project-group:last-of-type {
+    border-radius: 16px;
+  }
+
+  /* Group heading: icon tile, name, live dot, unseen badge, count pill, turning chevron. The full path
+     is noise on a phone (it stays in the tooltip). */
+  :root[data-skin="compact"] .hr-native-project-heading {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    min-height: 52px !important;
+    padding: 0 12px !important;
+    background: var(--td3-panel) !important;
+  }
+
+  :root[data-skin="compact"] .hr-native-project-heading > span:first-child {
+    display: flex !important;
+    align-items: center;
+    gap: 11px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  :root[data-skin="compact"] .hr-native-project-heading > span:first-child::before {
+    content: "";
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background-color: color-mix(in srgb, var(--td3-text) 7%, transparent);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 16px;
+  }
+
+  :root[data-skin="compact"] .hr-native-project-group.recent .hr-native-project-heading > span:first-child::before {
+    background-color: rgba(34, 211, 238, .12);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2322d3ee' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E");
+  }
+
+  :root[data-skin="compact"] .hr-native-project-heading > span:first-child strong {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  :root[data-skin="compact"] .hr-native-project-heading > span:first-child small {
+    display: none !important;
+  }
+
+  :root[data-skin="compact"] .hr-native-project-heading > span:last-child {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+  }
+
+  :root[data-skin="compact"] .hr-native-project-heading > span:last-child b {
+    min-width: 28px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--td3-text) 7%, transparent);
+    color: var(--td3-muted);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  :root[data-skin="compact"] .hr-native-project-heading .hr-native-project-chevron {
+    display: inline-flex;
+    transform: none !important;
+  }
+
+  :root[data-skin="compact"] .hr-native-project-chevron svg {
+    transform: rotate(0deg) !important;
+    transition: transform .2s ease;
+  }
+
+  :root[data-skin="compact"] .hr-native-project-group.collapsed .hr-native-project-chevron svg {
+    transform: rotate(-90deg) !important;
+  }
+
+  /* A group with an agent at work says so before you open it. */
+  :root[data-skin="compact"] .hr-native-project-live {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--td3-yellow, #e3b341);
+    animation: hr-project-live 1.4s ease-in-out infinite;
+  }
+
+  @keyframes hr-project-live {
+    50% { opacity: .3; transform: scale(.8); }
+  }
+
+  /* The list is its own stacking context, so pinned group headings can never paint over the
+     conversation that slides in on top of it. */
+  :root[data-skin="compact"] .hr-native-workspace-list,
+  :root[data-skin="compact"] .hr-native-home-scroll {
+    isolation: isolate;
+  }
+
+  :root[data-skin="compact"] .hr-native-workspace-detail.mobile-open {
+    z-index: 10;
+  }
+
+  /* An open group keeps its heading pinned while you scroll its Sessions. */
+  :root[data-skin="compact"] .hr-native-project-group:not(.collapsed) > .hr-native-project-heading {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+  }
+
+  :root[data-skin="compact"] .hr-native-project-group:not(.collapsed) {
+    background: color-mix(in srgb, var(--td3-panel) 70%, var(--td3-bg));
+  }
+
+  /* Rows inside an open group sit on the same block, slightly inset. */
+  :root[data-skin="compact"] .hr-native-project-group .hr-native-home-list {
+    padding: 2px 4px 4px !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root[data-skin="compact"] .hr-native-project-live,
+    :root[data-skin="compact"] .hr-native-project-chevron svg {
+      animation: none;
+      transition: none;
+    }
+  }
+}
+
+/* Settings get the same inset-list treatment: rounded blocks, hairline rows, an icon tile per row,
+   values shown quietly on the right. */
+@media (max-width: 780px) {
+  :root[data-skin="compact"] .hr-mobile-settings-group {
+    overflow: hidden;
+    border: 1px solid var(--td3-border-strong) !important;
+    border-radius: 16px !important;
+    background: var(--td3-panel) !important;
+  }
+
+  :root[data-skin="compact"] .hr-mobile-settings-group > span:first-child {
+    padding: 12px 14px 8px !important;
+    font-size: 11px !important;
+    letter-spacing: .06em;
+  }
+
+  :root[data-skin="compact"] .hr-mobile-settings-group > label[data-icon],
+  :root[data-skin="compact"] .hr-mobile-settings-group > .hr-settings-row-button[data-icon] {
+    display: grid !important;
+    grid-template-columns: 30px minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 12px !important;
+    min-height: 54px !important;
+    padding: 6px 12px !important;
+    border-top: 1px solid color-mix(in srgb, var(--td3-border-strong) 55%, transparent) !important;
+  }
+
+  :root[data-skin="compact"] .hr-mobile-settings-group > [data-icon]::before {
+    content: "";
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background-color: color-mix(in srgb, var(--td3-text) 7%, transparent);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 16px;
+  }
+
+  :root[data-skin="compact"] .hr-mobile-settings-group > [data-icon] > strong {
+    min-width: 0;
+    font-size: 14.5px !important;
+    font-weight: 600 !important;
+    line-height: 1.25;
+  }
+
+  /* Values read like iOS settings: no box, muted text, right aligned. */
+  :root[data-skin="compact"] .hr-mobile-settings-group > label[data-icon] select {
+    width: auto !important;
+    max-width: 130px !important;
+    min-height: 36px !important;
+    padding: 0 22px 0 6px !important;
+    border: 0 !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    color: var(--td3-muted) !important;
+    font-size: 14px !important;
+    text-align: right;
+    text-align-last: right;
+    text-overflow: ellipsis;
+  }
+
+  :root[data-skin="compact"] .hr-mobile-settings-group > label[data-icon] select:focus {
+    color: var(--td3-text) !important;
+  }
+
+  :root[data-skin="compact"] .hr-mobile-settings-group > p,
+  :root[data-skin="compact"] .hr-mobile-settings-body > p {
+    margin: 8px 6px 16px !important;
+    color: var(--td3-muted);
+    font-size: 12px !important;
+    line-height: 1.45;
+  }
+
+  :root[data-skin="compact"] .hr-mobile-settings-group > [data-icon="theme"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4'/%3E%3C/svg%3E");
+  }
+
+  :root[data-skin="compact"] .hr-mobile-settings-group > [data-icon="skin"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='3'/%3E%3Cpath d='M3 9h18M9 21V9'/%3E%3C/svg%3E");
+  }
+
+  :root[data-skin="compact"] .hr-mobile-settings-group > [data-icon="recents"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2322d3ee' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E");
+  }
+
+  :root[data-skin="compact"] .hr-mobile-settings-group > [data-icon="hide"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.1A10 10 0 0 1 12 5c5 0 9 4.5 10 7a12 12 0 0 1-3 4.2M6.1 6.1A12 12 0 0 0 2 12c1 2.5 5 7 10 7a10 10 0 0 0 4.2-.9'/%3E%3C/svg%3E");
+  }
+
+  :root[data-skin="compact"] .hr-mobile-settings-group > [data-icon="rules"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01'/%3E%3C/svg%3E");
+  }
+
+  :root[data-skin="compact"] .hr-mobile-settings-group > [data-icon="language"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18'/%3E%3C/svg%3E");
+  }
+
+  :root[data-skin="compact"] .hr-mobile-settings-group > [data-icon="live"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13 2L4 14h7l-1 8 9-12h-7z'/%3E%3C/svg%3E");
+  }
+
+  :root[data-skin="compact"] .hr-mobile-settings-group > [data-icon="finished"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E");
+  }
+
+  :root[data-skin="compact"] .hr-mobile-settings-group > [data-icon="reasoning"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z'/%3E%3C/svg%3E");
+  }
+}
+
+/* Machines: the same inset look — icon tile, rounded block — and the editor as a grouped form. */
+@media (max-width: 780px) {
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-card {
+    padding-left: 60px !important;
+    border: 1px solid var(--td3-border-strong) !important;
+    border-radius: 16px !important;
+    background: var(--td3-panel) !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-card::before {
+    content: "";
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--td3-text) 7%, transparent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='7' rx='2'/%3E%3Crect x='3' y='13' width='18' height='7' rx='2'/%3E%3Cpath d='M7 7.5h.01M7 16.5h.01'/%3E%3C/svg%3E") center / 18px no-repeat;
+  }
+
+  :root[data-skin="compact"] .uw-machine-manager-footer {
+    gap: 8px !important;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom)) !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-manager-footer > span {
+    display: none !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-manager-footer .uw-manager-button {
+    min-height: 44px !important;
+    padding: 0 10px !important;
+    border-radius: 12px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Harness chips run under the icon tile too and wrap onto more lines, so every harness stays
+     visible instead of being clipped at the card's edge. */
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-card .uw-machine-harness-list {
+    flex: 0 0 calc(100% + 48px) !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    margin: 6px 0 0 -48px !important;
+    max-width: none !important;
+    overflow: visible !important;
+    scrollbar-width: none;
+  }
+
+  :root[data-skin="compact"] .uw-machine-overview .uw-machine-config-card .uw-machine-harness-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Editor: one grouped block of fields — label on the left, value on the right, hairline rows. */
+  :root[data-skin="compact"] .uw-machine-editor .uw-machine-editor-grid {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0 !important;
+    overflow: hidden;
+    border: 1px solid var(--td3-border-strong);
+    border-radius: 14px;
+    background: var(--td3-panel-2, var(--td3-panel));
+  }
+
+  :root[data-skin="compact"] .uw-machine-editor .uw-machine-editor-grid > label {
+    display: grid !important;
+    grid-template-columns: 84px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    min-height: 50px;
+    margin: 0 !important;
+    padding: 0 14px !important;
+    border-top: 1px solid color-mix(in srgb, var(--td3-border-strong) 55%, transparent);
+  }
+
+  :root[data-skin="compact"] .uw-machine-editor .uw-machine-editor-grid > label:first-child {
+    border-top: 0;
+  }
+
+  :root[data-skin="compact"] .uw-machine-editor .uw-machine-editor-grid > label > span {
+    color: var(--td3-muted);
+    font-size: 13px !important;
+    font-weight: 600;
+  }
+
+  :root[data-skin="compact"] .uw-machine-editor .uw-machine-editor-grid > label > input {
+    width: 100%;
+    min-width: 0;
+    height: 48px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    color: var(--td3-text) !important;
+    font-size: 15px !important;
+    text-align: right;
+  }
+
+  :root[data-skin="compact"] .uw-machine-editor .uw-machine-editor-grid > label:focus-within > span {
+    color: var(--td3-blue);
+  }
+
+  /* A remote machine's project folders are informational only; the card no longer shows them either. */
+  :root[data-skin="compact"] .uw-machine-editor .hr-machine-project-roots:has(> .uw-machine-project-roots-note) {
+    display: none !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-editor .uw-machine-test-result {
+    margin-top: 10px !important;
+    padding: 8px 12px !important;
+    border-radius: 10px !important;
+    font-size: 13px !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-editor .uw-machine-editor-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px !important;
+    margin-top: 12px !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-editor .uw-machine-editor-actions .uw-manager-button {
+    min-height: 44px !important;
+    border-radius: 12px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-editor .uw-machine-editor-actions .uw-manager-button.primary {
+    grid-column: 1 / -1;
+  }
+
+  /* The local machine has no connection test: Cancel and Save then share one row at equal widths
+     instead of Cancel sitting alone at half width above a full-width Save. */
+  :root[data-skin="compact"] .uw-machine-editor .uw-machine-editor-actions:not(:has(> :nth-child(3))) .uw-manager-button.primary {
+    grid-column: auto;
+  }
+
+  /* Project folders (local machine): one row per folder, the path on the left and Remove on the
+     right, and "Add folder…" as a full-width button matching the editor's actions. */
+  :root[data-skin="compact"] .uw-machine-editor .hr-machine-project-roots {
+    margin-top: 12px !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-editor .hr-project-roots-list {
+    display: grid !important;
+    gap: 6px !important;
+    margin: 8px 0 !important;
+    padding: 0 !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-editor .hr-project-roots-list li {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center !important;
+    gap: 8px !important;
+    min-height: 44px;
+    padding: 4px 4px 4px 12px !important;
+    border: 1px solid var(--td3-border, rgba(148, 163, 184, .18)) !important;
+    border-radius: 12px !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-editor .hr-project-roots-list code {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12.5px;
+  }
+
+  :root[data-skin="compact"] .uw-machine-editor .hr-machine-project-roots .uw-manager-button {
+    min-height: 36px !important;
+    border-radius: 10px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-editor .hr-machine-project-roots > .uw-manager-button {
+    width: 100% !important;
+    min-height: 44px !important;
+    border-radius: 12px !important;
+    font-size: 14px !important;
+  }
+}
+
+/* Connection test: the whole editor flashes green when the machine answers (the button then says
+   "Connected" instead of a notice); red when it does not, keeping the reason underneath. */
+@media (max-width: 780px) {
+  :root[data-skin="compact"] .uw-machine-manager-body > .uw-machine-editor.test-ok {
+    animation: hr-modal-in .2s cubic-bezier(.2, .8, .2, 1), hr-editor-ok 1.4s ease-in-out 3;
+  }
+
+  :root[data-skin="compact"] .uw-machine-manager-body > .uw-machine-editor.test-fail {
+    animation: hr-modal-in .2s cubic-bezier(.2, .8, .2, 1), hr-editor-fail 1.2s ease-in-out 2;
+    border-color: rgba(248, 113, 113, .6) !important;
+  }
+
+  @keyframes hr-editor-ok {
+    0%, 100% { border-color: var(--td3-border-strong); box-shadow: 0 16px 48px rgba(0, 0, 0, .5); }
+    50% { border-color: rgba(74, 222, 128, .95); box-shadow: 0 0 0 3px rgba(74, 222, 128, .35), 0 0 32px rgba(74, 222, 128, .35); }
+  }
+
+  @keyframes hr-editor-fail {
+    50% { box-shadow: 0 0 0 3px rgba(248, 113, 113, .35), 0 0 28px rgba(248, 113, 113, .3); }
+  }
+
+  :root[data-skin="compact"] .uw-machine-manager-body > .uw-machine-editor.test-ok {
+    border-color: rgba(74, 222, 128, .7) !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-editor.test-ok .uw-machine-test-result.ok {
+    display: none !important;
+  }
+
+  :root[data-skin="compact"] .uw-machine-editor.test-ok .uw-machine-editor-actions .uw-manager-button:nth-child(2) {
+    border-color: rgba(74, 222, 128, .8) !important;
+    background: rgba(74, 222, 128, .14) !important;
+    color: #4ade80 !important;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root[data-skin="compact"] .uw-machine-manager-body > .uw-machine-editor:is(.test-ok, .test-fail) {
+      animation: none;
+    }
+  }
+}
+
+/* About rows wear the same icon tiles as the other settings rows. */
+@media (max-width: 780px) {
+  :root[data-skin="compact"] .hr-about .hr-about-row[data-icon] {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    gap: 12px;
+    min-height: 54px;
+    padding: 6px 12px;
+  }
+
+  :root[data-skin="compact"] .hr-about .hr-about-row[data-icon]::before {
+    content: "";
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background-color: color-mix(in srgb, var(--td3-text) 7%, transparent);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 16px;
+  }
+
+  :root[data-skin="compact"] .hr-about .hr-about-row[data-icon="creator"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4 21a8 8 0 0 1 16 0'/%3E%3C/svg%3E");
+  }
+
+  :root[data-skin="compact"] .hr-about .hr-about-row[data-icon="repository"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 19c-5 1.5-5-2.5-7-3m14 6v-3.9a3.4 3.4 0 0 0-.9-2.6c3-.3 6.2-1.5 6.2-6.7a5.2 5.2 0 0 0-1.4-3.6 4.8 4.8 0 0 0-.1-3.6s-1.2-.4-3.8 1.4a13 13 0 0 0-7 0C6.4 1.3 5.2 1.7 5.2 1.7a4.8 4.8 0 0 0-.1 3.6A5.2 5.2 0 0 0 3.7 9c0 5.2 3.2 6.4 6.2 6.7a3.4 3.4 0 0 0-.9 2.6V22'/%3E%3C/svg%3E");
+  }
+
+  :root[data-skin="compact"] .hr-about .hr-about-row[data-icon="license"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 2v6h6M8 13h8M8 17h5'/%3E%3C/svg%3E");
+  }
+
+  :root[data-skin="compact"] .hr-about .hr-about-row[data-icon="contributors"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='8' r='3.5'/%3E%3Cpath d='M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6'/%3E%3C/svg%3E");
+  }
+
+  :root[data-skin="compact"] .hr-about .hr-about-row[data-icon="skin"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z'/%3E%3C/svg%3E");
+  }
+}
+
+/* Chat errors read as a proper notice: panel surface, red accent, compact text, a small round close
+   button on the right — not a black bar with a centred ×. */
+:root[data-skin="compact"] .tdw-chat-error {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 10px !important;
+  padding: 10px 8px 10px 14px !important;
+  border: 1px solid rgba(248, 113, 113, .45) !important;
+  border-left: 4px solid #f87171 !important;
+  border-radius: 12px !important;
+  background: var(--td3-panel) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35) !important;
+  color: var(--td3-text) !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+  text-align: left !important;
+}
+
+:root[data-skin="compact"] .tdw-chat-error > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+:root[data-skin="compact"] .tdw-chat-error > button {
+  display: grid !important;
+  place-items: center;
+  flex: none;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  margin: -2px 0 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: color-mix(in srgb, var(--td3-text) 8%, transparent) !important;
+  color: var(--td3-muted) !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+}
+
+/* Floating chat errors (phones) keep the notice look instead of the generic toast pill. */
+@media (max-width: 780px) {
+  :root[data-skin="compact"] .hr-control-plane .tdw-work-thread-conversation > .tdw-chat-error {
+    align-items: flex-start !important;
+    padding: 10px 8px 10px 14px !important;
+    border: 1px solid rgba(248, 113, 113, .45) !important;
+    border-left: 4px solid #f87171 !important;
+    border-radius: 14px !important;
+    background: color-mix(in srgb, #f87171 8%, var(--td3-panel)) !important;
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+  }
+}
+
+/* Chat errors must stand out over a busy transcript: a warning icon, a stronger surface, a drop-in
+   with a short "no" shake, then a red glow that pulses three times and settles. */
+@media (max-width: 780px) {
+  :root[data-skin="compact"] .hr-control-plane .tdw-work-thread-conversation > .tdw-chat-error {
+    z-index: 25 !important;
+    background: color-mix(in srgb, #f87171 16%, var(--td3-panel)) !important;
+    border-color: rgba(248, 113, 113, .75) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .55) !important;
+    font-weight: 500;
+    animation:
+      hr-error-in .32s cubic-bezier(.2, .8, .2, 1),
+      hr-error-shake 2s ease-in-out .32s infinite,
+      hr-error-glow 1.4s ease-in-out .32s infinite;
+  }
+
+  :root[data-skin="compact"] .hr-control-plane .tdw-work-thread-conversation > .tdw-chat-error::before {
+    content: "";
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin-top: 1px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f87171' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z'/%3E%3Cpath d='M12 9v4M12 17h.01'/%3E%3C/svg%3E") center / 20px no-repeat;
+  }
+
+  @keyframes hr-error-in {
+    from { opacity: 0; transform: translateY(-14px) scale(.97); }
+  }
+
+  /* One "no" shake in the first third of each cycle, then a pause before the next. */
+  @keyframes hr-error-shake {
+    0%, 34%, 100% { transform: translateX(0); }
+    6% { transform: translateX(-8px); }
+    13% { transform: translateX(7px); }
+    20% { transform: translateX(-5px); }
+    27% { transform: translateX(3px); }
+  }
+
+  @keyframes hr-error-glow {
+    50% {
+      box-shadow: 0 0 0 4px rgba(248, 113, 113, .35), 0 0 26px rgba(248, 113, 113, .45), 0 10px 30px rgba(0, 0, 0, .55);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root[data-skin="compact"] .hr-control-plane .tdw-work-thread-conversation > .tdw-chat-error {
+      animation: none;
+    }
+  }
+}
+
+/* Top bar: the app name is back (tagline hidden); the agent logos live beside the status tabs. */
+@media (max-width: 780px) {
+  :root[data-skin="compact"] .hr-topbar .hr-brand > div small {
+    display: none !important;
+  }
+}
+
+/* Status tabs as pulsing symbols with their counts: a stack for All, a live dot for Live, a bell
+   for Attention (it rings harder when something waits). The words stay for screen readers. The
+   coding-agent logos sit at the end of the row, breathing one after another. */
+.hr-filter-icon,
+.hr-filter-agents {
+  display: none;
+}
+
+@media (max-width: 780px) {
+  :root[data-skin="compact"] .hr-native-home .hr-native-session-filters {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 4px 6px !important;
+  }
+
+  :root[data-skin="compact"] .hr-native-home .hr-native-session-filters > button {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    flex: none !important;
+    width: auto !important;
+    min-width: 0 !important;
+    min-height: 34px !important;
+    padding: 0 12px !important;
+    border-radius: 999px !important;
+  }
+
+  :root[data-skin="compact"] .hr-native-session-filters > button > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  :root[data-skin="compact"] .hr-native-session-filters > button > b {
+    font-size: 13px !important;
+    font-variant-numeric: tabular-nums;
+  }
+
+  :root[data-skin="compact"] .hr-filter-icon {
+    display: block;
+    flex: none;
+    width: 16px;
+    height: 16px;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 16px;
+  }
+
+  :root[data-skin="compact"] .hr-filter-icon.all {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2 2 7l10 5 10-5z'/%3E%3Cpath d='m2 17 10 5 10-5M2 12l10 5 10-5'/%3E%3C/svg%3E");
+    animation: hr-tab-breathe 2.6s ease-in-out infinite;
+  }
+
+  :root[data-skin="compact"] .hr-filter-icon.live {
+    width: 10px;
+    height: 10px;
+    margin: 0 3px;
+    border-radius: 999px;
+    background: var(--td3-yellow, #e3b341);
+    animation: hr-tab-ping 1.6s ease-out infinite;
+  }
+
+  :root[data-skin="compact"] .hr-filter-icon.attention {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f87171' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9'/%3E%3Cpath d='M10.3 21a1.9 1.9 0 0 0 3.4 0'/%3E%3C/svg%3E");
+    opacity: .55;
+    animation: hr-tab-breathe 2.6s ease-in-out infinite;
+  }
+
+  :root[data-skin="compact"] .hr-filter-icon.attention.alert {
+    opacity: 1;
+    animation: hr-tab-ring 1.2s ease-in-out infinite;
+  }
+
+  :root[data-skin="compact"] .hr-filter-agents {
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+    padding-right: 2px;
+  }
+
+  :root[data-skin="compact"] .hr-filter-agents > button {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    margin-left: -7px;
+    padding: 4px;
+    border: 2px solid var(--td3-panel);
+    border-radius: 999px;
+    background: var(--td3-panel-2, var(--td3-bg));
+    box-sizing: border-box;
+    transition: transform .22s cubic-bezier(.2, .8, .2, 1), opacity .22s ease, margin .22s ease, box-shadow .22s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :root[data-skin="compact"] .hr-filter-agents > button > img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  :root[data-skin="compact"] .hr-filter-agents > button > b {
+    color: var(--td3-text);
+    font-size: 10px;
+  }
+
+  :root[data-skin="compact"] .hr-filter-agents > button:first-child {
+    margin-left: 0;
+  }
+
+  /* Nothing picked: every logo breathes, one after another. */
+  :root[data-skin="compact"] .hr-filter-agents > button {
+    animation: hr-agent-breathe 2.8s ease-in-out infinite;
+  }
+
+  :root[data-skin="compact"] .hr-filter-agents > button:active {
+    transform: scale(.82);
+  }
+
+  /* One picked: it steps forward — bigger, ringed, glowing, spaced from the rest — and keeps
+     breathing; the others fall back, dim and still. */
+  :root[data-skin="compact"] .hr-filter-agents.filtering > button:not(.selected, .hr-filter-agents-more) {
+    z-index: 0;
+    opacity: .35;
+    transform: scale(.82);
+    filter: grayscale(.6);
+    animation: none;
+  }
+
+  :root[data-skin="compact"] .hr-filter-agents.filtering > button.selected {
+    z-index: 2;
+    margin-left: 4px;
+    margin-right: 4px;
+    border-color: var(--td3-blue);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--td3-blue) 35%, transparent), 0 0 14px color-mix(in srgb, var(--td3-blue) 45%, transparent);
+    animation: hr-agent-picked 1.6s ease-in-out infinite;
+  }
+
+  :root[data-skin="compact"] .hr-filter-agents.filtering > button.selected:first-child {
+    margin-left: 0;
+  }
+
+  /* New Session: the agent choice uses the same breathing logos as the filter row. Nothing dims
+     here — one is always chosen — but the chosen one steps forward, ringed and glowing. */
+  :root[data-skin="compact"] .hr-native-create-agents-field {
+    display: grid;
+    gap: 8px;
+  }
+
+  :root[data-skin="compact"] .hr-native-create-agents-field > span {
+    color: var(--td3-muted);
+    font-size: 13px;
+  }
+
+  :root[data-skin="compact"] .hr-create-agents {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  :root[data-skin="compact"] .hr-create-agents > button {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    min-width: 72px;
+    padding: 6px 4px;
+    border: 0;
+    background: transparent;
+    color: var(--td3-muted);
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .22s cubic-bezier(.2, .8, .2, 1), opacity .22s ease, color .22s ease;
+  }
+
+  :root[data-skin="compact"] .hr-create-agents > button > i {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    padding: 8px;
+    border: 2px solid var(--td3-line, var(--td3-panel));
+    border-radius: 999px;
+    background: var(--td3-panel-2, var(--td3-bg));
+    box-sizing: border-box;
+    font-style: normal;
+    animation: hr-agent-breathe 2.8s ease-in-out infinite;
+    animation-delay: inherit;
+    transition: border-color .22s ease, box-shadow .22s ease, filter .22s ease, opacity .22s ease;
+  }
+
+  :root[data-skin="compact"] .hr-create-agents > button > i > img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  :root[data-skin="compact"] .hr-create-agents > button > i > b {
+    color: var(--td3-text);
+    font-size: 13px;
+  }
+
+  :root[data-skin="compact"] .hr-create-agents > button > small {
+    max-width: 84px;
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  :root[data-skin="compact"] .hr-create-agents > button:not(.selected) > i {
+    opacity: .5;
+    filter: grayscale(.5);
+  }
+
+  :root[data-skin="compact"] .hr-create-agents > button.selected {
+    color: var(--td3-text);
+    transform: translateY(-2px);
+  }
+
+  :root[data-skin="compact"] .hr-create-agents > button.selected > i {
+    border-color: var(--td3-blue);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--td3-blue) 35%, transparent), 0 0 16px color-mix(in srgb, var(--td3-blue) 45%, transparent);
+    animation: hr-create-agent-picked 1.6s ease-in-out infinite;
+  }
+
+  /* The narrowest phones (360px) need a tighter tab row so tabs, logos and "+N" stay inside it. */
+  @media (max-width: 380px) {
+    :root[data-skin="compact"] .hr-native-home .hr-native-session-filters {
+      gap: 4px !important;
+      padding: 4px !important;
+    }
+
+    :root[data-skin="compact"] .hr-native-home .hr-native-session-filters > button {
+      gap: 5px;
+      padding: 0 8px !important;
+    }
+  }
+
+  /* Search filters: harness on its own line (its own container), then Projects on a full line and
+     Sessions and states side by side, so no label is cut down to "Todas · P…". */
+  :root[data-skin="compact"] .hr-native-session-scopes:has(> :nth-child(3)) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    grid-auto-flow: row !important;
+    gap: 6px !important;
+  }
+
+  :root[data-skin="compact"] .hr-native-session-scopes:has(> :nth-child(3)) > .hr-native-scope {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    grid-column: auto !important;
+  }
+
+  :root[data-skin="compact"] .hr-native-session-scopes:has(> :nth-child(3)) > .hr-native-scope:first-child {
+    grid-column: 1 / -1 !important;
+  }
+
+  /* "+N" is a quiet chip of its own, spaced from the logos rather than stacked on them. Opening it
+     moves every logo to a full-width row under the status tabs. */
+  :root[data-skin="compact"] .hr-filter-agents > .hr-filter-agents-more {
+    width: auto;
+    min-width: 30px;
+    margin-left: 6px;
+    padding: 0 8px;
+    border: 1px solid var(--td3-border-strong, var(--td3-panel));
+    background: transparent;
+    color: var(--td3-muted);
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    animation: none;
+  }
+
+  :root[data-skin="compact"] .hr-native-home .hr-native-session-filters:has(.hr-filter-agents.expanded) {
+    flex-wrap: wrap !important;
+    row-gap: 8px !important;
+  }
+
+  :root[data-skin="compact"] .hr-filter-agents.expanded {
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 6px;
+  }
+
+  @keyframes hr-agent-picked {
+    0%, 100% { transform: scale(1.18); }
+    50% { transform: scale(1.28); }
+  }
+
+  @keyframes hr-tab-breathe {
+    50% { opacity: .45; transform: scale(.9); }
+  }
+
+  @keyframes hr-tab-ping {
+    0% { box-shadow: 0 0 0 0 rgba(227, 179, 65, .7); }
+    70% { box-shadow: 0 0 0 7px rgba(227, 179, 65, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(227, 179, 65, 0); }
+  }
+
+  @keyframes hr-tab-ring {
+    0%, 60%, 100% { transform: rotate(0); }
+    10% { transform: rotate(14deg) scale(1.1); }
+    20% { transform: rotate(-12deg) scale(1.1); }
+    30% { transform: rotate(8deg); }
+    40% { transform: rotate(-6deg); }
+  }
+
+  @keyframes hr-create-agent-picked {
+    0%, 100% { transform: scale(1.06); }
+    50% { transform: scale(1.14); }
+  }
+
+  @keyframes hr-agent-breathe {
+    50% { transform: scale(1.12); box-shadow: 0 0 10px rgba(96, 165, 250, .35); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root[data-skin="compact"] :is(.hr-filter-icon, .hr-filter-agents > *, .hr-create-agents > button > i) {
+      animation: none !important;
+    }
+  }
+}

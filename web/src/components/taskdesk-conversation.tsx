@@ -6,21 +6,9 @@ import { AlertIcon, ChatIcon, CloseIcon, JumpToBottomIcon, JumpToTopIcon, Loadin
 import "../taskdesk-conversation.css"
 import "../taskdesk-history-loader.css"
 import { TaskDeskMessageContent } from "./taskdesk-message-content"
+import { harnessIconUrl } from "../harness-icons"
 
-const HARNESS_ICON_FILES: Record<string, string> = {
-  codex: "codex.svg",
-  claude: "claude.svg",
-  opencode: "opencode.svg",
-  opencode2: "opencode.svg",
-  omp: "omp.svg",
-  pi: "pi.svg"
-}
 
-function harnessIconUrl(backend: string | undefined): string | undefined {
-  if (!backend) return undefined
-  const file = HARNESS_ICON_FILES[backend.toLowerCase()]
-  return file ? `${import.meta.env.BASE_URL}harness-icons/${file}` : undefined
-}
 
 const NEAR_BOTTOM_PX = 96
 const COMPOSER_MAX_HEIGHT_PX = 180
@@ -44,6 +32,7 @@ type Props = {
   commands?: CommandInfo[]
   attachments?: AttachmentPart[]
   attachmentsSupported?: boolean
+  composerAccessory?: ReactNode
   onAttachmentsChange?: (attachments: AttachmentPart[]) => void
   onAttachmentError?: (message: string) => void
   onSend: () => Promise<void> | void
@@ -471,6 +460,7 @@ export function TaskDeskConversation({
   commands = [],
   attachments = [],
   attachmentsSupported = false,
+  composerAccessory,
   onAttachmentsChange,
   onAttachmentError,
   onSend,
@@ -716,6 +706,7 @@ export function TaskDeskConversation({
                 </button>
               </>
             ) : null}
+            {composerAccessory}
             {/* While the composer is busy its status row above the field already says why. */}
             {composerBusy ? null : <small id="uw-composer-hint">{hint}</small>}
             {waiting && onStop && midTurnSend && draft.trim() ? (
