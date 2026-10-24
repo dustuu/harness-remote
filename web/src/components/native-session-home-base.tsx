@@ -101,6 +101,9 @@ type AgentPageCache = CursorPageState<RecordWithMachine> & {
   machineID: string
   agent: MachineAgentHost
   projects: MachineProject[]
+  /** Later pages scanned to find a match for the current rail filters. */
+  olderProbePages?: Array<{ records: RecordWithMachine[]; nextCursor?: string }>
+  olderProbeCursor?: string
 }
 
 type SessionPresentationState = "working" | "attention" | "stopped" | "ready"
@@ -228,6 +231,20 @@ export function appendCursorPage<T>(
     nextCursor,
     loadedOlder: true
   }
+}
+
+export function sameCursorPageLineage<T>(
+  current: Pick<CursorPageState<T>, "firstPageCursor" | "nextCursor"> | undefined,
+  refreshed: Pick<CursorPageState<T>, "firstPageCursor" | "nextCursor">
+): boolean {
+  return Boolean(current)
+    && current?.firstPageCursor === refreshed.firstPageCursor
+    && current?.nextCursor === refreshed.nextCursor
+}
+
+/** Return the first cached older page containing a record that survives the active filters. */
+export function firstMatchingOlderPage<T>(pages: Array<{ records: T[] }>, matches: (record: T) => boolean): number {
+  return pages.findIndex((page) => page.records.some(matches))
 }
 
 function sessionActivityCompare(left: RecordWithMachine, right: RecordWithMachine): number {
@@ -514,6 +531,7 @@ export function NativeSessionHome({
   const [createError, setCreateError] = useState<string | null>(null)
   const [discoveryError, setDiscoveryError] = useState<string | null>(null)
   const [loadingOlderMachines, setLoadingOlderMachines] = useState<ReadonlySet<string>>(() => new Set())
+  const [probingOlderMachines, setProbingOlderMachines] = useState<ReadonlySet<string>>(() => new Set())
   const olderRequests = useRef(new Set<string>())
   const [olderSessionErrors, setOlderSessionErrors] = useState<Record<string, string | undefined>>({})
   const [query, setQuery] = useState("")
@@ -709,6 +727,7 @@ export function NativeSessionHome({
             project: catalogProject(record, result.projects, result.snapshot!.machine.id)
           }))
           const refreshed = refreshCursorPage(authoritativeRefresh ? undefined : existing, firstRecords, page.nextCursor, recordKey)
+          const preserveProbeCache = !authoritativeRefresh && sameCursorPageLineage(existing, refreshed)
           const recordsForScope = uniqueSessionRecords(refreshed.records)
             .filter((item) => !deletedKeysRef.current?.has(recordKey(item)))
           pageCache.current.set(scope, {
@@ -719,7 +738,11 @@ export function NativeSessionHome({
             records: recordsForScope,
             firstPageCursor: refreshed.firstPageCursor,
             nextCursor: refreshed.nextCursor,
-            loadedOlder: refreshed.loadedOlder
+            loadedOlder: refreshed.loadedOlder,
+            ...(preserveProbeCache ? {
+              olderProbePages: existing?.olderProbePages,
+              olderProbeCursor: existing?.olderProbeCursor
+            } : {})
           })
         }
       }
@@ -1001,6 +1024,22 @@ export function NativeSessionHome({
     filter === "failed" || filter === "completed" || filter === "recent" ? filter : ""
   const showOperationalFilter = bucketCounts.failed + bucketCounts.completed + bucketCounts.recent > 0 || Boolean(operationalFilter)
 
+  const hasSessionFilters = Boolean(query.trim() || agentFilter || projectFilter || modelFilter || filter !== "all" || machineFilter)
+  const matchesActiveFilters = (item: RecordWithMachine) => {
+    if (deletedKeysRef.current?.has(recordKey(item))) return false
+    const projection = projectionForItem(item)
+    if (machineFilter && item.machine.id !== machineFilter) return false
+    if (agentFilter && !matchesAgentFilter(agentFilter, item.record.agentId, item.record.backend)) return false
+    if (projectFilter && projection.projectKey !== projectFilter) return false
+    if (modelFilter && projection.modelKey !== modelFilter) return false
+    if (filter !== "all" && projection.bucket !== filter) return false
+    return matchesFederatedSessionQuery(projection, query)
+  }
+  const machineHasMatchingOlderPage = (machineID: string) => [...pageCache.current.values()].some((entry) =>
+    entry.machine.id === machineID
+    && firstMatchingOlderPage(entry.olderProbePages || [], matchesActiveFilters) >= 0
+  )
+
   useEffect(() => {
     onAttentionCountChange?.(attentionCount)
     onAttentionKeysChange?.(attentionKeys)
@@ -1029,8 +1068,8 @@ export function NativeSessionHome({
       const machineProjects = filteredGroups.filter((group) => group.machine.id === machine.id)
       // Compact skin: the folders being worked on come first.
       const projects = compactSkin ? [...machineProjects].sort((left, right) => right.updatedAt - left.updatedAt) : machineProjects
-      const filtering = Boolean(query.trim() || agentFilter || projectFilter || modelFilter || filter !== "all")
-      if (!projects.length && filtering) return []
+      const filtering = Boolean(query.trim() || agentFilter || projectFilter || modelFilter || filter !== "all" || machineFilter)
+      if (!projects.length && filtering && !machineHasMatchingOlderPage(machine.id)) return []
       // While searching or filtering the Recent group would only repeat the results below it.
       const recent = compactSkin && recentsEnabled && !filtering
         ? projects
@@ -1057,10 +1096,57 @@ export function NativeSessionHome({
           count + group.sessions.filter((item) => unseenKeys.has(recordKey(item))).length, 0),
         updatedAt: projects.reduce((latest, group) => Math.max(latest, group.updatedAt), 0)
       }]
-    }), [agentFilter, compactSkin, filter, filteredGroups, machineFilter, modelFilter, projectFilter, projectionForItem, query, recentsEnabled, sources, t, unseenKeys])
+    }), [agentFilter, compactSkin, filter, filteredGroups, machineFilter, modelFilter, projectFilter, projectionForItem, query, recentsEnabled, sources, t, unseenKeys, probingOlderMachines])
+
+  useEffect(() => {
+    if (!hasSessionFilters) {
+      setProbingOlderMachines(new Set())
+      return
+    }
+    let cancelled = false
+    const entries = [...pageCache.current.entries()].filter(([, entry]) =>
+      entry.nextCursor
+      && (!machineFilter || entry.machine.id === machineFilter)
+      && (!agentFilter || matchesAgentFilter(agentFilter, entry.agent.id, entry.agent.backend))
+    )
+    setProbingOlderMachines(new Set(entries.map(([, entry]) => entry.machine.id)))
+    void Promise.all(entries.map(async ([scope, entry]) => {
+      let pages = entry.olderProbePages || []
+      let cursor = entry.olderProbeCursor ?? (pages.length ? pages[pages.length - 1].nextCursor : entry.nextCursor)
+      if (firstMatchingOlderPage(pages, matchesActiveFilters) >= 0) return
+      while (cursor && !cancelled) {
+        try {
+          const page = await discoverAgentNativeSessionPageSkippingEmpty(entry.machine.config, entry.agent, cursor)
+          if (page.nextCursor === cursor) throw new Error("Session listing returned the same pagination cursor twice.")
+          const records = page.records.map((record) => ({
+            machine: entry.machine,
+            machineID: entry.machineID,
+            record,
+            project: catalogProject(record, entry.projects, entry.machineID)
+          }))
+          pages = [...pages, { records, nextCursor: page.nextCursor }]
+          cursor = page.nextCursor
+          if (records.some(matchesActiveFilters)) break
+        } catch {
+          break
+        }
+      }
+      if (cancelled) return
+      const current = pageCache.current.get(scope)
+      if (current && current.nextCursor === entry.nextCursor) {
+        current.olderProbePages = pages
+        current.olderProbeCursor = cursor
+      }
+    })).finally(() => {
+      if (!cancelled) setProbingOlderMachines(new Set())
+    })
+    return () => { cancelled = true }
+  }, [agentFilter, filter, hasSessionFilters, machineFilter, modelFilter, projectFilter, projectionForItem, query, records])
 
   const olderPageTargets = [...pageCache.current.entries()].filter(([, entry]) =>
-    entry.nextCursor
+    (hasSessionFilters
+      ? firstMatchingOlderPage(entry.olderProbePages || [], matchesActiveFilters) >= 0
+      : Boolean(entry.nextCursor))
     && (!machineFilter || entry.machine.id === machineFilter)
     && (!agentFilter || matchesAgentFilter(agentFilter, entry.agent.id, entry.agent.backend))
   )
@@ -1072,6 +1158,19 @@ export function NativeSessionHome({
     setLoadingOlderMachines(new Set(olderRequests.current))
     setOlderSessionErrors((current) => ({ ...current, [machineID]: undefined }))
     const outcomes = await Promise.all(targets.map(async ([scope, entry]) => {
+      if (hasSessionFilters) {
+        const pages = entry.olderProbePages || []
+        const matchIndex = firstMatchingOlderPage(pages, matchesActiveFilters)
+        if (matchIndex < 0) return { ok: false as const, scope, cursor: entry.nextCursor!, error: "No matching older Sessions were found." }
+        const revealedPages = pages.slice(0, matchIndex + 1)
+        return {
+          ok: true as const,
+          scope,
+          cursor: entry.nextCursor!,
+          page: { nextCursor: revealedPages[revealedPages.length - 1].nextCursor },
+          records: revealedPages.flatMap((page) => page.records)
+        }
+      }
       const cursor = entry.nextCursor!
       try {
         const page = await discoverAgentNativeSessionPageSkippingEmpty(entry.machine.config, entry.agent, cursor)
@@ -1101,7 +1200,9 @@ export function NativeSessionHome({
         ...current,
         ...appended,
         records: uniqueSessionRecords(appended.records)
-          .filter((item) => !deletedKeysRef.current?.has(recordKey(item)))
+          .filter((item) => !deletedKeysRef.current?.has(recordKey(item))),
+        olderProbePages: undefined,
+        olderProbeCursor: undefined
       })
     }
     const freshRecords = uniqueSessionRecords([...pageCache.current.values()].flatMap((entry) => entry.records))
@@ -1535,7 +1636,9 @@ export function NativeSessionHome({
             // Empty pages are skipped within a bounded discovery read. If that budget runs out,
             // a remaining cursor still means unscanned history: keep manual continuation reachable
             // even when no rows have been found yet. A fully scanned empty machine has no cursor.
-            const hasOlderSessions = state === "online" && olderPageTargets.some(([, entry]) => entry.machine.id === machine.id)
+            const hasOlderSessions = state === "online"
+              && !probingOlderMachines.has(machine.id)
+              && olderPageTargets.some(([, entry]) => entry.machine.id === machine.id)
             const reconnecting = state === "online" && Boolean(error)
             return (
               <section className={`hr-native-machine-group ${state}${machineCollapsed ? " collapsed" : ""}`} key={machine.id} aria-label={t("sf.groupSessions", { name: label })}>
@@ -1563,7 +1666,7 @@ export function NativeSessionHome({
                 </button>
                 {machineCollapsed ? null : (
                   <>
-                    {projects.length === 0 && state !== "loading" && !(state === "online" && (!snapshotLoaded || reconnecting)) ? (
+                    {projects.length === 0 && !hasOlderSessions && state !== "loading" && !(state === "online" && (!snapshotLoaded || reconnecting)) ? (
                       <div className="hr-native-machine-empty">
                         <ServerIcon size={15} />
                         <span>{state === "offline" ? t("sf.machineUnavailableSaved") : t("sf.noSessionsOnMachine")}</span>

@@ -744,7 +744,9 @@ export function WorkThreadConversation({
     }
     await tailRefreshRef.current(async () => {
       try {
-        const page = await controller.loadMessagePage(target.config, session, target.directory, undefined, INITIAL_PAGE_SIZE, false)
+        // A long native turn can put its user boundary beyond the newest raw page. Keep live reads
+        // aligned through that prompt so the timeline can attach every later assistant update.
+        const page = await loadInitialTarget(target)
         setFeeds((current) => {
           const existing = current[session]
           if (!existing) return { ...current, [session]: { messages: page.messages, before: page.before, hasMore: page.hasMore } }
@@ -758,7 +760,7 @@ export function WorkThreadConversation({
         // reconciliation path will retry without clearing or replacing it.
       }
     })
-  }, [baseConfig, controller])
+  }, [baseConfig, loadInitialTarget])
 
   useEffect(() => {
     if (!interactionEnabled || !transcriptRefreshToken) return

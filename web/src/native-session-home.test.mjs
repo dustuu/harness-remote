@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { needsRailLifecycleStream } from "./components/native-session-home.tsx"
-import { appendCursorPage, reconcileStableSessionRecords, refreshCursorPage, sessionTreeRows } from "./components/native-session-home-base.tsx"
+import { appendCursorPage, firstMatchingOlderPage, reconcileStableSessionRecords, refreshCursorPage, sameCursorPageLineage, sessionTreeRows } from "./components/native-session-home-base.tsx"
 import { mergedAttentionSessionCount } from "./components/native-session-home-attention.tsx"
 import { canCreateNativeSession } from "./native-session-create.ts"
 import { classifyNativeSessionAttention, sessionNeedsAttention } from "./native-session-attention.ts"
@@ -50,6 +50,22 @@ assert.deepEqual(rows.map(({ item: row, depth }) => [row.record.session.id, dept
 assert.equal(new Set(rows.map(({ item: row }) => row.record.session.id)).size, 7, "cycles or missing parents must never hide or duplicate a native Session")
 
 const byID = (record) => record.id
+assert.equal(sameCursorPageLineage({ firstPageCursor: "page-2", nextCursor: "page-4" }, { firstPageCursor: "page-2", nextCursor: "page-4" }), true,
+  "a refresh with the same first and tail cursors must retain its matching-page probe cache")
+assert.equal(sameCursorPageLineage({ firstPageCursor: "page-2", nextCursor: "page-4" }, { firstPageCursor: "page-3", nextCursor: "page-4" }), false,
+  "a changed first-page cursor invalidates probe pages from the prior native history")
+assert.equal(sameCursorPageLineage({ firstPageCursor: "page-2", nextCursor: "page-4" }, { firstPageCursor: "page-2", nextCursor: "page-5" }), false,
+  "a changed tail cursor invalidates probe pages from the prior native history")
+const probedOlderPages = [
+  { records: [{ id: "status-miss", status: "idle", project: "a" }] },
+  { records: [{ id: "query-miss", status: "completed", project: "b" }] },
+  { records: [{ id: "matching-older", status: "completed", project: "a" }] }
+]
+assert.equal(firstMatchingOlderPage(probedOlderPages, (record) => record.status === "completed" && record.project === "a"), 2,
+  "filtered pagination must skip cached older pages until the first page containing a matching Session")
+assert.equal(firstMatchingOlderPage(probedOlderPages.slice(0, 2), (record) => record.status === "failed"), -1,
+  "filtered pagination must stay hidden when every discovered older page misses the active filter")
+
 let cursorPage = refreshCursorPage(undefined, [
   { id: "recent-1", title: "Recent one" },
   { id: "recent-2", title: "Recent two" }
@@ -322,6 +338,8 @@ assert.match(source, /machine\.config\.username,[\s\S]*machine\.config\.password
 assert.match(source, /onRefreshCompleteRef\.current\?\.\(refreshToken\)/, "a requested Session refresh must settle only after its index read completes")
 assert.doesNotMatch(source, /discoverMachineNativeSessions/, "the recurring rail must not eagerly flatten every Session page")
 assert.match(source, /entry\.nextCursor[\s\S]*loadOlderSessions/, "older native Session pages must require an explicit user action")
+assert.match(source, /while \(cursor && !cancelled\)[\s\S]*records\.some\(matchesActiveFilters\)/, "active filters must scan later pages only until a matching older Session is cached")
+assert.match(source, /firstMatchingOlderPage\(entry\.olderProbePages \|\| \[\], matchesActiveFilters\)/, "the load-older button must require a cached older page that matches every active filter")
 assert.match(source, /page: await discoverAgentNativeSessionPageSkippingEmpty\(machine.config, agent\)/, "first discovery must traverse empty pages within its budget")
 assert.match(source, /const page = await discoverAgentNativeSessionPageSkippingEmpty\(entry.machine.config, entry.agent, cursor\)/, "manual continuation must also traverse empty pages")
 assert.doesNotMatch(source, /hasOlderSessions =[^\n]*sessionCount > 0/, "an unscanned tail must remain reachable even when no Sessions have been found yet")

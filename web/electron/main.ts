@@ -9,6 +9,7 @@ import { buildApplicationMenu } from "./app-menu.js"
 import { buildContextMenu } from "./context-menu.js"
 import { EmbeddedDaemonRuntime, EMBEDDED_DAEMON_HOST, EMBEDDED_DAEMON_LAN_HOST, EMBEDDED_DAEMON_PROFILE_ID, embeddedDaemonEntry, type EmbeddedDaemonExit } from "./embedded-daemon.js"
 import { DesktopEventTransport } from "./event-transport.js"
+import { externalLinkUrl } from "./external-link.js"
 import { IPC_CHANNELS, parseDesktopAttentionNotification, parseDesktopMenuTemplate, type DesktopNetworkSettingsState, type DesktopProjectRootsState } from "./ipc-contract.js"
 import { NetworkSettingsStore } from "./network-settings.js"
 import { DesktopProfileError, ProfileRegistry } from "./profile-registry.js"
@@ -293,9 +294,19 @@ function createWindow(): BrowserWindow {
     log(`renderer exited (${details.reason})`)
     eventTransport.closeForOwner(contents)
   })
-  contents.setWindowOpenHandler(() => ({ action: "deny" }))
+  const openExternalLink = (url: string) => {
+    const external = externalLinkUrl(url)
+    if (external) void shell.openExternal(external).catch(() => undefined)
+  }
+  contents.setWindowOpenHandler(({ url }) => {
+    openExternalLink(url)
+    return { action: "deny" }
+  })
   contents.on("will-navigate", (event, url) => {
-    if (url !== pathToFileURL(rendererEntry).toString()) event.preventDefault()
+    if (url !== pathToFileURL(rendererEntry).toString()) {
+      event.preventDefault()
+      openExternalLink(url)
+    }
   })
   contents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
   contents.session.on("will-download", (event) => event.preventDefault())
