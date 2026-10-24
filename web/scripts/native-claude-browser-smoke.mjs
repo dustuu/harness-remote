@@ -301,7 +301,7 @@ async function waitFor(check, description, timeout = 15_000) {
 }
 
 async function waitForReady(page) {
-  await page.locator(".tdw-conversation-state.ready").waitFor({ state: "attached", timeout: 15_000 })
+  await page.locator(".tdw-conversation-toolbar .tdw-conversation-state.ready").waitFor({ state: "visible", timeout: 15_000 })
   const composer = page.getByRole("textbox", { name: /Message Claude/ })
   await composer.waitFor({ state: "visible", timeout: 15_000 })
   assert.equal(await composer.isDisabled(), false, "Claude composer must be enabled after mounted convergence")
