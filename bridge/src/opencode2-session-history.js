@@ -8,6 +8,10 @@ import { ownChildProcess } from "./managed-child-process.js"
 const EXPORT_ATTEMPTS = 3
 const EXPORT_RETRY_BACKOFF_MS = 75
 const MAX_EXPORT_BYTES = 64 * 1024 * 1024
+// Activity is collapsed in the transcript. A few visible exchanges can exceed the raw-message
+// page size because one reply may contain hundreds of assistant steps. Keep a useful screenful of
+// complete exchanges visible on first open rather than counting those hidden steps.
+const MIN_PAGE_TURNS = 20
 
 function sleep(ms) {
   // This timer owns an awaited retry, so keep the process alive until it can finish the read.
@@ -149,12 +153,46 @@ export function createOpenCode2HistoryLoader({ command = "opencode2", args = ["a
     const messages = openCode2ExportMessages(sessionID, exported)
     const end = before ? messages.findIndex((message) => message.info.id === before) : messages.length
     if (end < 0) throw new Error("Invalid OpenCode 2 history cursor")
-    const start = Math.max(0, end - Math.max(1, Math.min(500, Number(limit) || 100)))
+    const start = turnAlignedStart(messages, end, Math.max(1, Math.min(500, Number(limit) || 100)))
+    // The transcript is built from user turns, so the cursor must name a prompt rather than an
+    // assistant step inside one. Leading records before the first prompt cannot form a turn and are
+    // deliberately left unreachable instead of keeping the history indicator alive forever.
+    const hasEarlierTurn = start > 0 && messages.slice(0, start).some((message) => message.info.role === "user")
     const model = exported.info.model
     return {
-      messages: messages.slice(start, end), before: start > 0 ? messages[start].info.id : null, hasMore: start > 0,
+      messages: messages.slice(start, end), before: hasEarlierTurn ? messages[start].info.id : null, hasMore: hasEarlierTurn,
       ...(!before && model?.providerID && model?.id ? { model: { providerID: model.providerID, modelID: model.id, ...(model.variant ? { variant: model.variant } : {}) } } : {})
     }
   }
   return loader
+}
+
+/**
+ * OpenCode 2 writes one assistant envelope per model step, not one per turn: a single reply can be
+ * hundreds of messages, while the transcript UI renders logical user turns. Slicing a page at
+ * `end - limit` therefore often starts between two assistant steps, with the prompt that owns them
+ * outside the page. The UI builds its timeline from user turns, so such a page looked empty until
+ * the user paged backward by hand, and `hasMore` reported hidden activity instead of hidden
+ * messages. Start at a user prompt instead. Keep at least twenty turns, since even a short
+ * conversation can exceed the raw-message limit when replies have many collapsed model steps.
+ * When the newest turn is longer than the limit, include that whole turn.
+ */
+function turnAlignedStart(messages, end, limit) {
+  const candidate = Math.max(0, end - limit)
+  let minimumTurnStart = end
+  let turns = 0
+  for (let index = end - 1; index >= 0 && turns < MIN_PAGE_TURNS; index -= 1) {
+    if (messages[index].info.role !== "user") continue
+    minimumTurnStart = index
+    turns += 1
+  }
+  for (let index = candidate; index < end; index += 1) {
+    if (messages[index].info.role === "user") return Math.min(index, minimumTurnStart)
+  }
+  // No turn begins inside the limit, so the requested limit falls inside the newest turn. Keep that
+  // turn whole instead of returning activity whose prompt is missing.
+  for (let index = candidate - 1; index >= 0; index -= 1) {
+    if (messages[index].info.role === "user") return Math.min(index, minimumTurnStart)
+  }
+  return candidate
 }
