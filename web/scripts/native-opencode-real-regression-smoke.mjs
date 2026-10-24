@@ -483,7 +483,7 @@ async function assertCompletionAndModel(page, text, reasoning, final, label) {
   // session.status idle happens before this answer is durable and no final message.updated follows.
   // The Session remains mounted throughout: the answer and Ready state must appear without navigation.
   await page.getByText(final, { exact: true }).waitFor({ state: "visible", timeout: 3_000 })
-  await page.locator(".tdw-conversation-state.ready").waitFor({ state: "attached", timeout: 3_000 })
+  await page.locator(".tdw-conversation-state.ready:visible").waitFor({ state: "visible", timeout: 3_000 })
   assert.equal(await page.getByText(text, { exact: true }).count(), 1, `${label}: prompt rendered more than once`)
   assert.equal(await page.getByText(final, { exact: true }).count(), 1, `${label}: final response rendered more than once`)
   assert.equal(promptBodies.length, before + 1, `${label}: one user Send must dispatch exactly one native prompt`)
@@ -509,7 +509,7 @@ async function runScenario(browser, viewport, label) {
   await page.reload({ waitUntil: "domcontentloaded" })
   await openPrimary(page)
   await page.getByText(FINAL, { exact: true }).waitFor({ state: "visible", timeout: 2_000 })
-  await page.locator(".tdw-conversation-state.ready").waitFor({ state: "attached", timeout: 2_000 })
+  await page.locator(".tdw-conversation-state.ready:visible").waitFor({ state: "visible", timeout: 2_000 })
   assert.equal(await page.getByText(PROMPT, { exact: true }).count(), 1, `${label}: reopen duplicated first prompt`)
   assert.equal(await page.getByText(FINAL, { exact: true }).count(), 1, `${label}: reopen duplicated first final`)
 

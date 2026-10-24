@@ -490,7 +490,7 @@ try {
   assert.equal(await blockedComposer.isDisabled(), true, "composer must stay disabled while native models are still loading")
   assert.equal(await page.getByRole("button", { name: /^Send$/ }).isDisabled(), true, "Send must stay disabled while native models are still loading")
   assert.equal(await page.locator(".tdw-agent-control select").first().isDisabled(), true, "harness selector must stay disabled while native models are still loading")
-  assert.match(await page.locator(".tdw-conversation-state").innerText(), /Loading models|Waiting for model catalog/, "Session must expose model bootstrap instead of Ready")
+  assert.match(await page.locator(".tdw-conversation-state:visible").innerText(), /Loading models|Waiting for model catalog/, "Session must expose model bootstrap instead of Ready")
   releaseBlockedModelRead?.()
   await assertCatalog(page, ["pi-coding", "pi-reasoning"], ["omp-fast", "omp-deep"], "A")
   assert.equal(await blockedComposer.isDisabled(), false, "composer must enable automatically after the verified catalog arrives")
@@ -575,7 +575,7 @@ try {
   assert.equal(await routedControls.getByText("Machine", { exact: true }).count(), 0, "Session handoff must not expose a machine selector")
   assert.equal(await routedControls.getByText("Harness", { exact: true }).count(), 1, "Session handoff must expose one harness selector")
   assert.equal(await routedControls.getByText("Model", { exact: true }).count(), 1, "Session handoff must keep model selection")
-  assert.equal(await page.locator(".tdw-conversation-state").isVisible(), true, "routing controls must not hide the Session state")
+  assert.equal(await page.locator(".tdw-conversation-state:visible").isVisible(), true, "routing controls must not hide the Session state")
 
   // Harness + Model are one decision and must read as one compact control group. The routed container
   // used to inherit flex:1 while also declaring a 760px grid, so on a wide Session pane the unused

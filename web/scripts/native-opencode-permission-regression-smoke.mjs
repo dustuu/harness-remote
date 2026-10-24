@@ -414,10 +414,10 @@ async function assertAttentionSurvivesOpen(page) {
 async function waitForMountedTurnToStop(page, label) {
   const deadline = Date.now() + 4_000
   while (Date.now() < deadline) {
-    if (await page.locator(".tdw-conversation-state.working").count() === 0) return
+    if (await page.locator(".tdw-conversation-state.working:visible").count() === 0) return
     await page.waitForTimeout(50)
   }
-  assert.equal(await page.locator(".tdw-conversation-state.working").count(), 0, `${label}: permission resolution left mounted Activity running`)
+  assert.equal(await page.locator(".tdw-conversation-state.working:visible").count(), 0, `${label}: permission resolution left mounted Activity running`)
 }
 
 async function runScenario(browser, viewport, label) {
@@ -463,7 +463,7 @@ async function runScenario(browser, viewport, label) {
   while (Date.now() < allowDeadline && permissionReplies.length < 2) await new Promise((resolve) => setTimeout(resolve, 20))
   assert.deepEqual(permissionReplies[1], { id: PERMISSION_ID, body: { reply: "once" } }, `${label}: Allow once must preserve the native permission reply`)
   await page.getByText(ALLOW_FINAL, { exact: true }).waitFor({ state: "visible", timeout: 4_000 })
-  await page.locator(".tdw-conversation-state.ready").waitFor({ state: "attached", timeout: 4_000 })
+  await page.locator(".tdw-conversation-state.ready:visible").waitFor({ state: "visible", timeout: 4_000 })
   assert.equal(await page.getByText("Response interrupted", { exact: true }).count(), 0, `${label}: recovered allowed turn must not retain a stale interruption`)
   assert.equal(promptBodies.filter((body) => body.text === DENY_PROMPT).length, 1, `${label}: deny flow duplicated the native prompt`)
   assert.equal(promptBodies.filter((body) => body.text === ALLOW_PROMPT).length, 1, `${label}: allow flow duplicated the native prompt`)
