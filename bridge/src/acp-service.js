@@ -603,6 +603,7 @@ export class AcpService {
   #idleUnloadMs = 0
   #maxLoadedSessions = 0
   #canUnloadIdleSession
+  #closeNativeSessionOnDelete = false
   #idleUnloadSweepMs
   #lifecycleTimer
   #sweepTail = Promise.resolve()
@@ -721,6 +722,8 @@ export class AcpService {
     maxLoadedSessions = 0,
     /** Return true only when the harness itself reports no work still running for the Session. */
     canUnloadIdleSession,
+    /** A deleted Session releases its native adapter process, while keeping its disk transcript. */
+    closeNativeSessionOnDelete = false,
     /** How often the idle/LRU sweep runs. Defaults to a minute, bounded to the configured idle time. */
     idleUnloadSweepMs
   } = {}) {
@@ -759,6 +762,7 @@ export class AcpService {
     // Closing a Session whose background work we cannot observe would kill work the user meant to
     // keep running, so both policies are inert unless the harness supplies that evidence.
     this.#canUnloadIdleSession = typeof canUnloadIdleSession === "function" ? canUnloadIdleSession : undefined
+    this.#closeNativeSessionOnDelete = closeNativeSessionOnDelete === true
     if (!this.#canUnloadIdleSession) {
       this.#idleUnloadMs = 0
       this.#maxLoadedSessions = 0
@@ -1220,8 +1224,33 @@ export class AcpService {
     }
     if (!this.#sessions.has(sessionID)) throw new Error("Harness session not found")
 
-    if (this.#isBusy(sessionID)) this.abort(sessionID)
-    this.#deletedSessions.add(sessionID)
+    if (this.#closeNativeSessionOnDelete && this.#acpOpenSessions.has(sessionID)) {
+      // Keep the Session visible if the adapter cannot release its process. Hiding it first would
+      // also remove it from idle sweeps, leaving a native process with no bridge owner.
+      this.#deletedSessions.add(sessionID)
+      try {
+        const unloading = this.#unloading.get(sessionID)
+        if (unloading) await unloading
+        if (this.#acpOpenSessions.has(sessionID)) {
+          const closing = this.#acp.request("session/close", { sessionId: sessionID })
+          this.#unloading.set(sessionID, closing)
+          try {
+            await closing
+          } catch (error) {
+            if (!/session not found/i.test(error?.message ?? "")) throw error
+          } finally {
+            if (this.#unloading.get(sessionID) === closing) this.#unloading.delete(sessionID)
+          }
+          this.#forgetOpenSessions([sessionID])
+        }
+      } catch (error) {
+        this.#deletedSessions.delete(sessionID)
+        throw error
+      }
+    } else {
+      if (this.#isBusy(sessionID)) this.abort(sessionID)
+      this.#deletedSessions.add(sessionID)
+    }
     await this.#persistDeletedSessionIndex()
     this.#messages.delete(sessionID)
     this.#todos.delete(sessionID)

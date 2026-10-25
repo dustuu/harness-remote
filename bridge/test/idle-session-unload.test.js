@@ -12,6 +12,7 @@ class FakeAcp {
   pendingRequests = []
   holdPrompt = false
   holdClose = false
+  closeError
   #sessions = new Map()
   #next = 0
   #releasePrompt
@@ -38,6 +39,7 @@ class FakeAcp {
       return { sessionId: session.sessionId }
     }
     if (method === "session/close") {
+      if (this.closeError) throw this.closeError
       if (this.holdClose) {
         this.holdClose = false
         await new Promise((resolve) => { this.#releaseClose = resolve })
@@ -101,6 +103,31 @@ test("an idle native Session is closed and reloaded on the next read", async () 
   assert.deepEqual(messages, [])
   assert.equal(acp.count("session/load"), 1, "reading the unloaded Session must reopen it")
   assert.equal(service.diagnostics().openNativeSessions, 1)
+})
+
+test("deleting a loaded Claude Session closes its native process", async () => {
+  const acp = new FakeAcp()
+  const service = new AcpService(acp, { closeNativeSessionOnDelete: true })
+  const session = await service.createSession({ directory: "/repo" })
+
+  await service.deleteSession(session.id)
+  assert.equal(acp.count("session/close"), 1)
+  assert.equal(service.diagnostics().openNativeSessions, 0)
+  assert.equal(acp.count("session/load"), 0)
+})
+
+test("a failed native close leaves the Session available for retrying deletion", async () => {
+  const acp = new FakeAcp()
+  acp.closeError = new Error("close failed")
+  const service = new AcpService(acp, { closeNativeSessionOnDelete: true })
+  const session = await service.createSession({ directory: "/repo" })
+
+  await assert.rejects(service.deleteSession(session.id), /close failed/)
+  assert.equal(service.diagnostics().openNativeSessions, 1)
+  acp.closeError = undefined
+  await service.deleteSession(session.id)
+  assert.equal(acp.count("session/close"), 2)
+  assert.equal(service.diagnostics().openNativeSessions, 0)
 })
 
 test("a Session with a turn in flight is never unloaded", async () => {

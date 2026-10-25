@@ -509,9 +509,9 @@ registry keeps the Session open. Override the policy with
 
 **Rename and delete are bridge-local.** Renames persist in `~/.harness-remote/claude/`
 and survive bridge restarts, but are not propagated to the `claude` CLI itself.
-Deletion hides the session from this bridge and clears its cached data; it does
-not erase Claude Code's own history on disk. Deleted sessions reappear if the
-bridge is started from a fresh state directory.
+Deletion closes a loaded Claude Session, then hides it from this bridge and
+clears its cached data; it does not erase Claude Code's own history on disk.
+Deleted sessions reappear if the bridge is started from a fresh state directory.
 
 **Session visibility is not restricted by `--root`.** The bridge enumerates all
 Claude Code sessions on the machine, potentially spanning every repository the

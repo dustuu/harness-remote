@@ -179,7 +179,8 @@ export const HARNESS_PROFILES = {
     sessionLifecycle: {
       idleUnloadMs: CLAUDE_IDLE_UNLOAD_MS,
       maxLoadedSessions: CLAUDE_MAX_LOADED_SESSIONS,
-      idleUnloadGuard: "claude-session-registry"
+      idleUnloadGuard: "claude-session-registry",
+      closeNativeSessionOnDelete: true
     },
     lifecycleContract: COMMON_ACP_LIFECYCLE_CONTRACT,
     sessionContract: {

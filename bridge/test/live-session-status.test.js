@@ -350,6 +350,7 @@ test("harness contracts declare where live status comes from", () => {
   assert.equal(acpHarnessCapabilityContract(harnessProfile("omp")).sessions.liveStatus, "bridge-owned-only")
   assert.equal(acpHarnessCapabilityContract(harnessProfile("pi")).sessions.liveStatus, "bridge-owned-only")
   assert.equal(harnessProfile("claude").sessionLifecycle.idleUnloadGuard, "claude-session-registry")
+  assert.equal(harnessProfile("claude").sessionLifecycle.closeNativeSessionOnDelete, true)
   assert.equal(harnessProfile("omp").sessionLifecycle, undefined)
 })
 

@@ -213,6 +213,7 @@ export function createBridgeServer({ config, acp, serviceOptions, machineRegistr
     idleUnloadMs,
     maxLoadedSessions,
     canUnloadIdleSession,
+    closeNativeSessionOnDelete: lifecycle?.closeNativeSessionOnDelete === true,
     requireExistingDirectory: profile.requireExistingDirectory,
     actionProviders: profile.actionProviders,
     preferListedTitles: profile.preferListedTitles,
