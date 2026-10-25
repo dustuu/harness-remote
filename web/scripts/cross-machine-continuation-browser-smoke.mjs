@@ -348,6 +348,8 @@ async function ready(url) {
 
 async function seed(page) {
   await page.addInitScript(({ key, sourcePort, targetPort }) => {
+    // These smokes open Session rows directly; Classic keeps Projects expanded.
+    localStorage.setItem("harness-remote.skin", "classic")
     localStorage.setItem(key, JSON.stringify([
       { id: "source-profile", name: "Source Machine", config: { backend: "codex", host: "127.0.0.1", port: sourcePort, username: "harness", password: "testpw" } },
       { id: "target-profile", name: "Target Machine", config: { backend: "claude", host: "127.0.0.1", port: targetPort, username: "harness", password: "testpw" } }

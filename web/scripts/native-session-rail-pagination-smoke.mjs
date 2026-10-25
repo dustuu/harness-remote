@@ -71,7 +71,11 @@ try {
   browser = await chromium.launch({ headless: true })
   for (const viewport of [{ width: 1366, height: 768 }, { width: 375, height: 812 }, { width: 812, height: 375 }]) {
     const context = await browser.newContext({ viewport }), page = await context.newPage()
-    await page.addInitScript((machines) => localStorage.setItem("harness-remote.workspace.machines.v1", JSON.stringify(machines)), machines)
+    await page.addInitScript((machines) => {
+      localStorage.setItem("harness-remote.workspace.machines.v1", JSON.stringify(machines))
+      // This test exercises rail pagination with every Project initially expanded.
+      localStorage.setItem("harness-remote.skin", "classic")
+    }, machines)
     await page.goto(origin, { waitUntil: "domcontentloaded" })
     const groups = page.locator(".hr-native-machine-group")
     await waitFor(async () => await groups.count() === 3 && await page.locator(".hr-native-session-row").count() === 108)

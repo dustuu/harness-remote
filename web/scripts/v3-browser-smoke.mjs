@@ -306,13 +306,14 @@ async function runMobileAudit(browser) {
   }, { key: STORAGE_KEY, fixtures, user: AUTH_USER, password: AUTH_PASSWORD })
 
   await page.goto(APP_ORIGIN, { waitUntil: "domcontentloaded" })
+  assert.equal(await page.locator("html").getAttribute("data-skin"), "compact", "portrait should use Mahurley by default")
   await assertMobileHome(page, "portrait")
 
   await page.locator(".hr-mobile-nav").getByRole("button", { name: /Settings/ }).click()
   const settings = page.locator(".hr-session-settings-page")
   await settings.waitFor({ state: "visible" })
-  assert.equal(await settings.locator("select").nth(0).locator("option").count(), 3, "portrait Settings theme choices regressed")
-  assert.ok(await settings.locator("select").nth(1).locator("option").count() >= 4, "portrait Settings language choices regressed")
+  assert.equal(await settings.locator('label[data-icon="theme"] select option').count(), 3, "portrait Settings theme choices regressed")
+  assert.ok(await settings.locator('label[data-icon="language"] select option').count() >= 4, "portrait Settings language choices regressed")
   await boundingBoxInside(page, ".hr-session-settings-page", "portrait Settings page")
   await assertNoDocumentOverflow(page, "portrait Settings page")
   await page.locator(".hr-mobile-nav").getByRole("button", { name: /Sessions/ }).click()
@@ -356,8 +357,8 @@ async function runDesktopAudit(browser) {
   const settings = page.locator(".hr-session-settings-page")
   await settings.waitFor({ state: "visible" })
   await boundingBoxInside(page, ".hr-session-settings-page", "desktop Settings")
-  assert.equal(await settings.locator("select").nth(0).locator("option").count(), 3, "desktop Settings theme choices regressed")
-  assert.ok(await settings.locator("select").nth(1).locator("option").count() >= 4, "desktop Settings language choices regressed")
+  assert.equal(await settings.locator('label[data-icon="theme"] select option').count(), 3, "desktop Settings theme choices regressed")
+  assert.ok(await settings.locator('label[data-icon="language"] select option').count() >= 4, "desktop Settings language choices regressed")
   await settings.locator("header button").click()
   await settings.waitFor({ state: "hidden" })
 

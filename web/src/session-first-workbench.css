@@ -1597,7 +1597,8 @@
 
 /* The caption belongs to the group above it. When a second card follows, it needs its own breath
    before it instead of sitting flush against the sentence. */
-.hr-session-settings-page .hr-mobile-settings-body > p + .hr-mobile-settings-group {
+.hr-session-settings-page .hr-mobile-settings-body > p + .hr-mobile-settings-group,
+.hr-session-settings-page .hr-mobile-settings-body > .hr-mobile-settings-group + .hr-mobile-settings-group {
   margin-top: 14px;
 }
 

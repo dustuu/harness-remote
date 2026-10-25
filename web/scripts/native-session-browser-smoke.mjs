@@ -441,6 +441,8 @@ function stopServer(server) {
 
 async function seed(page) {
   await page.addInitScript(({ key, port }) => {
+    // This PI contract smoke opens the Session row directly; Classic keeps Projects expanded.
+    localStorage.setItem("harness-remote.skin", "classic")
     localStorage.setItem(key, JSON.stringify([{
       id: "machine-pi-v3-first",
       name: "PI v3-first Test",
