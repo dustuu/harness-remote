@@ -55,6 +55,9 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
 
 /** Stable identity: rebuilding this per render would remount every code block on every token. */
 export const MARKDOWN_COMPONENTS: Components = {
+  a({ node: _node, href, children, ...rest }) {
+    return <a {...rest} href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+  },
   pre({ node, children, ...rest }) {
     return (
       <div className="uw-code-block">

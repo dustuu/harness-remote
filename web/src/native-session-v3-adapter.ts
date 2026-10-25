@@ -608,9 +608,10 @@ function notifyTranscript(entry: NativeConversationEntry): void {
 
 function captureUserTurns(entry: NativeConversationEntry, page: MessagePage, before?: string): void {
   // The first page describes the Session state that existed when the v3 controller mounted. Older
-  // pages are admitted when the user explicitly pages backward. Tail refreshes do not manufacture
-  // new turns from replay IDs: new HR prompts already have one accepted client operation identity.
-  const mayDiscoverRuns = !entry.initialPageCaptured || Boolean(before)
+  // pages are admitted when the user explicitly pages backward. Codex Sessions can continue in the
+  // desktop app while this view stays open: each newly persisted user envelope must become a turn
+  // here as well, or its assistant messages have no turn to attach to in the timeline.
+  const mayDiscoverRuns = !entry.initialPageCaptured || Boolean(before) || entry.target.backend === "codex"
   if (!mayDiscoverRuns) return
 
   let changed = false
@@ -626,6 +627,19 @@ function captureUserTurns(entry: NativeConversationEntry, page: MessagePage, bef
       || [...entry.turns.values()].some((turn) => turn.nativeMessageID === message.info.id)
     ) continue
     const created = Number(message.info.time?.created) || entry.createdAt
+    // A prompt sent from this view already has a durable request identity. Its native user row can
+    // arrive on a later tail read; bind that row to the accepted turn instead of drawing it twice.
+    const accepted = entry.target.backend === "codex"
+      ? [...entry.turns.values()].reverse().find((turn) =>
+        turn.id.includes(":request:") && !turn.nativeMessageID
+        && canonicalText(turn.prompt) === prompt
+        && Math.abs(turn.created - created) <= PENDING_TRANSCRIPT_CLOCK_SKEW_MS
+      )
+      : undefined
+    if (accepted) {
+      accepted.nativeMessageID = message.info.id
+      continue
+    }
     entry.turns.set(id, { id, prompt, created, model: entry.currentModel, nativeMessageID: message.info.id })
     entry.createdAt = Math.min(entry.createdAt, created)
     entry.updatedAt = Math.max(entry.updatedAt, created)
