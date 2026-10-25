@@ -32,7 +32,7 @@ export const SKINS: SkinDefinition[] = [
   }
 ]
 
-export const DEFAULT_SKIN_ID = "classic"
+export const DEFAULT_SKIN_ID = "compact"
 
 export function isKnownSkin(value: unknown): value is string {
   return typeof value === "string" && SKINS.some((skin) => skin.id === value)
