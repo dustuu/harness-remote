@@ -289,6 +289,8 @@ function stopServer(server) {
 
 async function seed(page) {
   await page.addInitScript(({ key, port, machineID }) => {
+    // These smokes open Session rows directly; Classic keeps Projects expanded.
+    localStorage.setItem("harness-remote.skin", "classic")
     localStorage.setItem(key, JSON.stringify([{
       id: machineID,
       name: "OpenCode rail-state machine",

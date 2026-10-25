@@ -278,6 +278,8 @@ try {
   const pageErrors = []
   page.on("pageerror", (error) => pageErrors.push(error))
   await page.addInitScript(({ key, port }) => {
+    // These smokes open Session rows directly; Classic keeps Projects expanded.
+    localStorage.setItem("harness-remote.skin", "classic")
     localStorage.setItem(key, JSON.stringify([{
       id: "machine-outcome-smoke",
       name: "Outcome Smoke",

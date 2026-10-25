@@ -469,6 +469,8 @@ try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
   await page.addInitScript(({ key, port }) => {
+    // These smokes open Session rows directly; Classic keeps Projects expanded.
+    localStorage.setItem("harness-remote.skin", "classic")
     localStorage.setItem(key, JSON.stringify([{
       id: "machine-model-switch",
       name: "Model Switch Test",
