@@ -605,6 +605,7 @@ export class AcpService {
   #canUnloadIdleSession
   #idleUnloadSweepMs
   #lifecycleTimer
+  #sweepTail = Promise.resolve()
   #unloading = new Map()
   #unloads = 0
   #unloadFailures = 0
@@ -812,7 +813,13 @@ export class AcpService {
    * therefore a soft cap: when every open Session is busy or unproven, it is exceeded rather than
    * killing work.
    */
-  async sweepIdleSessions({ now = Date.now(), protect = [] } = {}) {
+  sweepIdleSessions(options = {}) {
+    const sweep = this.#sweepTail.then(() => this.#sweepIdleSessions(options))
+    this.#sweepTail = sweep.catch(() => {})
+    return sweep
+  }
+
+  async #sweepIdleSessions({ now = Date.now(), protect = [] } = {}) {
     if (!this.#canUnloadIdleSession) return []
     // Ordering data is only meaningful for Sessions the adapter still holds; deleting one or
     // reading a Session that was never loaded must not grow this map for the process lifetime.
@@ -832,10 +839,11 @@ export class AcpService {
         if (await this.#unloadSession(sessionID)) closed.push(sessionID)
       }
     }
-    while (this.#maxLoadedSessions > 0 && this.#acpOpenSessions.size > this.#maxLoadedSessions) {
-      const next = candidates()[0]
-      if (!next || !await this.#unloadSession(next.sessionID)) break
-      closed.push(next.sessionID)
+    if (this.#maxLoadedSessions > 0) {
+      for (const { sessionID } of candidates()) {
+        if (this.#acpOpenSessions.size <= this.#maxLoadedSessions) break
+        if (await this.#unloadSession(sessionID)) closed.push(sessionID)
+      }
     }
     return closed
   }

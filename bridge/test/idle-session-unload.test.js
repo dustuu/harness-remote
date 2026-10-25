@@ -169,15 +169,33 @@ test("the open-Session cap closes the least recently used idle Sessions", async 
   const third = await service.createSession({ directory: "/repo" })
   assert.equal(service.diagnostics().openNativeSessions, 3, "the cap is soft while unloading is unproven")
 
+  await service.sweepIdleSessions({ protect: [first.id, second.id, third.id] })
   safe = true
-  // The creation of the third Session already started a limit sweep that found unloading unsafe;
-  // let it settle so this one does not overlap a close it is about to perform itself.
-  await settleTick()
-  await settleTick()
-  assert.deepEqual(await service.sweepIdleSessions({ protect: [third.id] }), [first.id])
+  await service.sweepIdleSessions({ protect: [third.id] })
+  await waitFor(() => service.diagnostics().openNativeSessions === 2, "the limit sweep never settled")
   assert.equal(service.diagnostics().openNativeSessions, 2)
   assert.equal(acp.count("session/close"), 1)
   assert.deepEqual(acp.calls.filter(([method]) => method === "session/close").map(([, params]) => params.sessionId), [first.id])
+})
+
+test("the open-Session cap skips an older busy Session to close an idle one", async () => {
+  const acp = new FakeAcp()
+  let unloadable
+  const service = new AcpService(acp, {
+    maxLoadedSessions: 2,
+    canUnloadIdleSession: async (sessionID) => sessionID === unloadable
+  })
+  const first = await service.createSession({ directory: "/repo" })
+  const second = await service.createSession({ directory: "/repo" })
+  const third = await service.createSession({ directory: "/repo" })
+  await service.sweepIdleSessions({ protect: [first.id, second.id, third.id] })
+  unloadable = second.id
+
+  assert.deepEqual(await service.sweepIdleSessions({ protect: [third.id] }), [second.id])
+  assert.equal(service.diagnostics().openNativeSessions, 2)
+  assert.equal(acp.count("session/close"), 1)
+  assert.equal(acp.calls.find(([method]) => method === "session/close")[1].sessionId, second.id)
+  assert.notEqual(first.id, second.id)
 })
 
 test("a prompt after an unload reloads the transcript before it starts the turn", async () => {

@@ -572,6 +572,7 @@ export function createBridgeServer({ config, acp, serviceOptions, machineRegistr
     }
   }))
   server.on("close", unsubscribeActivity)
+  server.on("close", () => service.dispose())
   // The machine task launcher must use this exact service so task-created ACP sessions retain
   // their title, prompt, live messages, and ownership when the user switches harnesses.
   server.acpService = service
