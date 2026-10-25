@@ -273,7 +273,8 @@ async function newSessionAudit(page, label) {
 
   assert.equal(await machine.locator("option").count(), 2, `${label}: New Session must offer every configured machine`)
   assert.equal(await project.locator("option").count(), 1, `${label}: New Session must expose the selected machine's Projects`)
-  assert.ok(await agent.locator("option").count() >= 2, `${label}: New Session must expose the machine's native create agents`)
+  // Classic lists agents in a select; Mahurley shows them as a radiogroup of logos.
+  assert.ok(await agent.locator('option, [role="radio"]').count() >= 2,`${label}: New Session must expose the machine's native create agents`)
   await title.fill("Session-first UI audit")
   assert.equal(await create.isDisabled(), false, `${label}: a valid Project and agent must enable Create Session`)
   await noOverflow(page, `${label} New Session`)
