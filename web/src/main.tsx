@@ -14,6 +14,7 @@ import {
 import { ErrorBoundary } from "./ErrorBoundary"
 import {
   claimMachinePairing,
+  PairingUnreachableError,
   scanAndroidMachinePairing,
   subscribeAndroidMachinePairing,
   upsertPairedMachine,
@@ -59,6 +60,8 @@ type PairingNotice = {
   text: string
 }
 
+const PAIRING_SUCCESS_NOTICE_MS = 4_000
+
 function localRuntimeMachine(state: DesktopLocalRuntimeState | null): WorkspaceMachine | null {
   if (state?.status !== "ready") return null
   return {
@@ -100,6 +103,16 @@ function HarnessRemoteBoundary() {
   const [pairingScanBusy, setPairingScanBusy] = useState(false)
   const [pairingSuccessRevision, setPairingSuccessRevision] = useState(0)
   const [pairingSuccessMachineName, setPairingSuccessMachineName] = useState<string | null>(null)
+
+  // Success needs no action, so it clears itself. Errors carry what to fix and stay until dismissed;
+  // "connecting" is replaced by the outcome.
+  useEffect(() => {
+    if (pairingNotice?.kind !== "success") return
+    const timer = window.setTimeout(() => {
+      setPairingNotice((current) => current === pairingNotice ? null : current)
+    }, PAIRING_SUCCESS_NOTICE_MS)
+    return () => window.clearTimeout(timer)
+  }, [pairingNotice])
 
   // Persistent remote-machine profiles are still acknowledged before the workspace starts issuing
   // requests. The desktop-owned local runtime is intentionally absent from this snapshot: its
@@ -193,7 +206,9 @@ function HarnessRemoteBoundary() {
       // another chance until the server itself reports used/expired.
       setPairingNotice({
         kind: "error",
-        text: error instanceof Error ? error.message : t("sf.pairingFailed")
+        text: error instanceof PairingUnreachableError
+          ? t("sf.pairingUnreachable", { endpoint: error.endpoint })
+          : error instanceof Error ? error.message : t("sf.pairingFailed")
       })
     } finally {
       pairingInFlightRef.current.delete(grantKey)
@@ -255,7 +270,7 @@ function HarnessRemoteBoundary() {
           aria-live="polite"
         >
           <span><strong>{t("sf.machinePairing")}</strong>{pairingNotice.text}</span>
-          <button type="button" onClick={() => setPairingNotice(null)} aria-label={t("sf.dismissPairingStatus")}>×</button>
+          <button type="button" className="hr-machine-pairing-dismiss" onClick={() => setPairingNotice(null)} aria-label={t("sf.dismissPairingStatus")}>×</button>
         </div>
       ) : null}
     </>
