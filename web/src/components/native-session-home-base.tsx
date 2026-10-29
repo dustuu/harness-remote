@@ -1423,6 +1423,7 @@ export function NativeSessionHome({
           </div>
         </div>
 
+
         {records.length > 0 ? (
           <div className={`hr-native-home-tools${searchOpen ? " search-open" : ""}`}>
             <label className="hr-native-session-search">
