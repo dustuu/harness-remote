@@ -29,6 +29,7 @@ export const SERVER_STORAGE_KEYS = [
   BACKEND_STORAGE_KEYS.codex,
   BACKEND_STORAGE_KEYS.copilot,
   BACKEND_STORAGE_KEYS.mimo,
+  BACKEND_STORAGE_KEYS.deepseek,
   "opencode.remote.model",
   "opencode.remote.agent",
   "opencode.remote.newSessionDirectory",

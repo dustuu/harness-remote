@@ -215,6 +215,39 @@ holding the thread.
 **Watch:** the embedded `@openai/codex` version (it decides which models and modes exist), the
 rollout record shape, and any new `sessionUpdate` / notification shape.
 
+### DeepSeek Harness (DSH) — ACP over stdio, via a third-party adapter
+
+- **Adapter:** [`@openma/deepseek-harness-acp`](https://www.npmjs.com/package/@openma/deepseek-harness-acp),
+  MIT, **pinned to `0.4.40`** in `bridge/src/harness-profiles.js`. The package publishes `dsh-acp`
+  and embeds a standalone DeepSeek Harness runtime (`@deepseek-ai/dsh`), so no separate `dsh`
+  install is required. An installed `dsh-acp` on PATH is preferred; otherwise `npx` fetches the
+  pinned package.
+- **Runtime:** Node.js 22.15 or newer. The first start extracts the bundled runtime into the
+  adapter cache (roughly 1 GB, `DSH_ACP_CACHE_DIR` overrides the location) and can take about 40
+  seconds. Later starts reuse it.
+- **Authentication:** the host must already have DSH credentials in `~/.dsh/.credentials.yaml`
+  (written by `dsh login` / `dsh-acp login`) or `DEEPSEEK_API_KEY` in the adapter environment. The
+  bridge does not manage the DeepSeek API key and sets `NO_BROWSER=1` so an unauthenticated start
+  cannot open a browser.
+- **Sessions:** DSH stores JSONL sessions under `$DSH_HOME/sessions` (default `~/.dsh/sessions`),
+  grouped by workspace. `session/list` reports every workspace; the bridge filters by Project as it
+  does for the other ACP harnesses.
+
+**Assumed, from a live 0.4.40 probe with DSH 0.2.1-rc.2:**
+
+| Assumption | What breaks if it changes |
+|---|---|
+| `session/new`, `session/list`, `session/load`, `session/prompt`, `session/cancel`, `session/close` and `session/set_config_option` expose the standard surface | Session browsing, replay, prompting or Stop stops working |
+| `session/load` replays the complete transcript, including the `user_message_chunk` for each prompt and runtime-context notices as non-message `session_info_update`s | the profile declares `replayAuthoritative` and `replayUserChunksAreMessages`; a partial replay would replace the cached transcript with less |
+| Model config values use `provider::model`, e.g. `deepseek-official::deepseek-flash` | the model picker groups on `::` as well as `/`; if the adapter changes separator the picker loses its provider split |
+| Reasoning is a separate `effort` select (`off`, `low`, `high`, `max`) | the reasoning control disappears; the model still works |
+| `session/resume` exists but is not used, because without a journal loader it would skip the only transcript source | do not enable `journalPageWhileOwned: false` for this profile without adding a history loader |
+| `_session/steering` injects into a running turn and answers `{outcome:"promptRequired",reason:"noRunningTurn"}` when the turn already ended | the profile declares `midTurnPrompt: "steer"`; the bridge queues or starts the already-recorded prompt on that outcome |
+| Tool permissions accept the bridge's automatic `allow` response | tool calls can hang or be refused; the bridge deliberately runs DSH unattended |
+
+**Watch:** the pinned adapter version, the bundled DSH version, the model value separator, the
+`effort` option id, and the steering response shape.
+
 ### OpenCode 2 — native default effort
 
 Observed with OpenCode 2.0.11: both ACP session config and native session export may report

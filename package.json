@@ -7,7 +7,8 @@
     "harness-remote-daemon": "bridge/src/daemon-bin.js",
     "harness-remote-copilot-smoke": "bridge/scripts/copilot-real-smoke.mjs",
     "harness-remote-opencode2-smoke": "bridge/scripts/opencode2-real-smoke.mjs",
-    "harness-remote-mimo-smoke": "bridge/scripts/mimo-real-smoke.mjs"
+    "harness-remote-mimo-smoke": "bridge/scripts/mimo-real-smoke.mjs",
+    "harness-remote-deepseek-smoke": "bridge/scripts/deepseek-real-smoke.mjs"
   },
   "scripts": {
     "start": "node bridge/src/launcher.js",
@@ -54,7 +55,8 @@
     "bridge/scripts/acp-provider-real-smoke-lib.mjs",
     "bridge/scripts/opencode2-real-smoke.mjs",
     "bridge/scripts/mimo-real-smoke.mjs",
-    "docs/PLUGINS.md"
+    "docs/PLUGINS.md",
+    "bridge/scripts/deepseek-real-smoke.mjs"
   ],
   "publishConfig": {
     "access": "public"

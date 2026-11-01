@@ -414,6 +414,60 @@ export const HARNESS_PROFILES = {
       sessionRename: true,
       sessionDelete: true
     }
+  }),
+  deepseek: defineAcpProvider({
+    id: "deepseek",
+    label: "DeepSeek Harness",
+    // @openma/deepseek-harness-acp embeds the standalone DeepSeek Harness runtime and speaks ACP
+    // over stdio. Prefer an installed `dsh-acp`; otherwise npx fetches this pinned adapter. The
+    // adapter bundles DSH, so no separate CLI install is required on the host.
+    command: process.platform === "win32" ? "npx.cmd" : "npx",
+    detectCommands: ["dsh", "dsh-acp"],
+    launchPriority: 80,
+    args: ["--yes", "--package=@openma/deepseek-harness-acp@0.4.40", "dsh-acp"],
+    adapterCommand: "dsh-acp",
+    allowPackageFallback: true,
+    permissionMode: "allow",
+    environment: {
+      // DSH otherwise tries to open a browser for interactive login. The bridge uses the
+      // credentials DSH already holds (~/.dsh/.credentials.yaml or DEEPSEEK_API_KEY).
+      NO_BROWSER: "1"
+    },
+    // `session/load` replays the complete native transcript, including the user turn that produced
+    // it, so taking over a stored Session must replace a cached partial transcript rather than
+    // merge a second copy into it. `session/resume` exists, but without a journal loader it would
+    // skip the only source of that history; the profile deliberately stays on the replay path.
+    replayAuthoritative: true,
+    replayUserChunksAreMessages: true,
+    preserveListedTimestamps: true,
+    // The adapter exposes DSH's reasoning control as a separate `effort` select.
+    modelVariantConfigIDs: ["effort"],
+    // ACP carries the provider id as the model prefix. The picker should show the product name
+    // rather than the internal `deepseek-official` slug.
+    modelProviderLabels: { "deepseek-official": "DeepSeek" },
+    lifecycleContract: COMMON_ACP_LIFECYCLE_CONTRACT,
+    sessionContract: {
+      authority: "native-harness",
+      discovery: "native-list",
+      transcript: "session-load",
+      externalWriterObservation: "unverified-session-load",
+      continuation: "session-load",
+      writerOwnership: "adapter-defined",
+      stop: "owned-session-native-cancel"
+    },
+    capabilities: {
+      ...COMMON_CAPABILITIES,
+      models: true,
+      todos: true,
+      commands: true,
+      permissions: true,
+      actions: false,
+      // DSH documents `_session/steering`: injected input when a turn is running, and
+      // `promptRequired` when the turn ended first. AcpService handles both outcomes.
+      midTurnPrompt: "steer",
+      sessionRename: true,
+      sessionDelete: true
+    }
   })
 }
 

@@ -13,13 +13,14 @@ class RecordingAcp {
   #listeners = new Set()
   promptCapabilities = {}
   processID = 4242
-  constructor({ holdPrompt = false, models = ["openai/a", "openai/b"], currentModel = models[0], variantConfigID = "thinking", currentVariant = "off" } = {}) {
+  constructor({ holdPrompt = false, models = ["openai/a", "openai/b"], currentModel = models[0], variantConfigID = "thinking", currentVariant = "off", variantValues = [currentVariant, "high"] } = {}) {
     this.holdPrompt = holdPrompt
     this.releasePrompt = undefined
     this.models = models
     this.currentModel = currentModel
     this.variantConfigID = variantConfigID
     this.currentVariant = currentVariant
+    this.variantValues = variantValues
   }
   on() { return this }
   off() { return this }
@@ -31,7 +32,7 @@ class RecordingAcp {
   #configOptions() {
     return [
       { id: "model", currentValue: this.currentModel, options: this.models.map((value) => ({ value })) },
-      { id: this.variantConfigID, currentValue: this.currentVariant, options: [{ value: this.currentVariant }, { value: "high" }] }
+      { id: this.variantConfigID, currentValue: this.currentVariant, options: this.variantValues.map((value) => ({ value })) }
     ]
   }
   async request(method, params) {
@@ -111,6 +112,31 @@ test("retired MiMo models and unadvertised inline variants never reach model swi
   await assert.rejects(service.setModel("s1", "mimo/mimo-auto"), /unavailable/)
   await assert.rejects(service.setModel("s1", "xiaomi/mimo-v2.6-flash", { configId: "model", value: "high" }), /variant is not available/)
   assert.deepEqual(configCalls(acp), [])
+})
+
+test("DeepSeek Harness `::` model values round-trip through reads and model switching", async () => {
+  const acp = new RecordingAcp({
+    models: ["deepseek-official::deepseek-flash", "deepseek-official::deepseek-v4-pro"],
+    variantConfigID: "effort",
+    currentVariant: "high",
+    variantValues: ["off", "low", "high", "max"]
+  })
+  const service = new AcpService(acp, { modelProviderID: "deepseek", modelVariantConfigIDs: ["effort"] })
+  assert.deepEqual((await service.messagePage("s1")).model, {
+    providerID: "deepseek-official",
+    modelID: "deepseek-flash",
+    variant: "high"
+  })
+  assert.deepEqual((await service.models("s1")).map((model) => model.value), [
+    "deepseek-official::deepseek-flash",
+    "deepseek-official::deepseek-v4-pro"
+  ])
+  // Selecting an already-current model only applies the requested effort.
+  await service.setModel("s1", "deepseek-official/deepseek-flash", { configId: "effort", value: "low" })
+  assert.deepEqual(configCalls(acp), ["effort=low"])
+  // A different model is resolved back to the native `::` wire value.
+  await service.setModel("s1", "deepseek-official/deepseek-v4-pro", { configId: "effort", value: "max" })
+  assert.deepEqual(configCalls(acp), ["effort=low", "model=deepseek-official::deepseek-v4-pro", "effort=max"])
 })
 
 test("legacy ACP model state is switched with session/set_model", async () => {

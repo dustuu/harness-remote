@@ -145,6 +145,50 @@ test("ACP model normalization filters retired prefixes at a path boundary and pr
   assert.equal(CachedCatalog.name, "CachedCatalog")
 })
 
+test("DeepSeek Harness model values split at `::` while keeping the native value selectable", () => {
+  const option = {
+    id: "model",
+    currentValue: "deepseek-official::deepseek-flash",
+    options: [
+      { value: "deepseek-official::deepseek-flash", name: "DeepSeek-V4.1-Flash (DeepSeek)" },
+      { value: "deepseek-official::deepseek-v4-pro", name: "DeepSeek-V4-Pro (DeepSeek)" }
+    ]
+  }
+  const models = modelsFromConfigOptions([option], "deepseek")
+  assert.deepEqual(models.map(({ providerID, modelID, modelName, isDefault }) => ({ providerID, modelID, modelName, isDefault })), [
+    { providerID: "deepseek-official", modelID: "deepseek-flash", modelName: "DeepSeek-V4.1-Flash (DeepSeek)", isDefault: true },
+    { providerID: "deepseek-official", modelID: "deepseek-v4-pro", modelName: "DeepSeek-V4-Pro (DeepSeek)", isDefault: false }
+  ])
+  assert.equal(modelValueForSelection(models[0], option, "deepseek"), "deepseek-official::deepseek-flash")
+  assert.equal(modelValueForSelection(models[1], option, "deepseek"), "deepseek-official::deepseek-v4-pro")
+  assert.deepEqual(normalizedAcpModelCandidates(option).map(({ value, currentValue }) => [value, currentValue]), [
+    ["deepseek-official::deepseek-flash", true],
+    ["deepseek-official::deepseek-v4-pro", false]
+  ])
+  const labeled = modelsFromConfigOptions([option], "deepseek", [], {
+    providerLabels: { "deepseek-official": "DeepSeek" }
+  })
+  assert.deepEqual(labeled.map(({ providerID, providerName }) => ({ providerID, providerName })), [
+    { providerID: "deepseek-official", providerName: "DeepSeek" },
+    { providerID: "deepseek-official", providerName: "DeepSeek" }
+  ])
+})
+
+test("provider ordering understands both `/` and `::` model separators", () => {
+  const option = {
+    id: "model",
+    currentValue: "local::one",
+    options: [
+      { value: "local::one" },
+      { value: "remote/two" }
+    ]
+  }
+  assert.deepEqual(
+    normalizedAcpModelCandidates(option, [], [], ["remote", "local"]).map(({ value, sortPriority }) => [value, sortPriority]),
+    [["remote/two", 0], ["local::one", 1]]
+  )
+})
+
 test("ACP model discovery keeps one warm catalog per adapter lifetime and explicit refresh uses a fresh technical session", async () => {
   const stateDirectory = await mkdtemp(path.join(tmpdir(), "harness-model-catalog-"))
   try {
@@ -274,7 +318,7 @@ test("ACP variants are emitted only from model-specific config options advertise
     )
     assert.equal(result.models.filter((model) => model.variant).every((model) => model.variantConfigId === "thinking"), true)
     assert.equal(result.models.some((model) => model.variantConfigId === "invented-option"), false)
-    assert.equal(currentModel, "provider/two", "the hidden technical Session may remain on the last probed model")
+    assert.equal(currentModel, "provider/one", "the hidden technical Session must be restored so it cannot change the default of user Sessions")
     const selected = await catalog.resolve({ providerID: "provider", modelID: "two", variant: "high" })
     assert.equal(selected.variantConfigId, "thinking")
   } finally {

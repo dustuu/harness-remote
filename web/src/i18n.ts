@@ -290,6 +290,7 @@ export type TranslationKey =
   | 'detail.opencode2'
   | 'detail.copilot'
   | 'detail.mimo'
+  | 'detail.deepseek'
   | 'detail.projectDashboardLabel'
   | 'detail.projectLabel'
   | 'detail.vcsLabel'
@@ -396,6 +397,7 @@ export type TranslationKey =
   | 'connect.harness.codex'
   | 'connect.harness.copilot'
   | 'connect.harness.mimo'
+  | 'connect.harness.deepseek'
   | 'connect.addressHint'
   | 'connect.runOnHost'
   | 'connect.copyCommand'
@@ -1064,6 +1066,7 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'detail.opencode2': '🤖 OpenCode 2',
     'detail.copilot': '🤖 GitHub Copilot CLI',
     'detail.mimo': '🤖 MiMo Code',
+    'detail.deepseek': '🐋 DeepSeek Harness',
     'detail.projectDashboardLabel': 'Project and VCS dashboard',
     'detail.projectLabel': 'Project',
     'detail.vcsLabel': 'VCS',
@@ -1237,6 +1240,7 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'connect.harness.codex': 'Connect to Codex CLI through the ACP bridge.',
     'connect.harness.copilot': 'Connect to GitHub Copilot CLI through the ACP bridge.',
     'connect.harness.mimo': 'Connect to MiMo Code through the ACP bridge.',
+    'connect.harness.deepseek': 'Connect to DeepSeek Harness through the ACP bridge.',
     'connect.addressHint': 'Use the LAN address of the machine that runs the harness.',
     'connect.runOnHost': 'Run on the host machine',
     'connect.copyCommand': 'Copy command',
@@ -1838,6 +1842,7 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'detail.opencode2': '🤖 OpenCode 2',
     'detail.copilot': '🤖 GitHub Copilot CLI',
     'detail.mimo': '🤖 MiMo Code',
+    'detail.deepseek': '🐋 DeepSeek Harness',
     'detail.projectDashboardLabel': 'Dashboard progetto e VCS',
     'detail.projectLabel': 'Progetto',
     'detail.vcsLabel': 'VCS',
@@ -2011,6 +2016,7 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'connect.harness.codex': 'Connessione a Codex CLI tramite bridge ACP.',
     'connect.harness.copilot': 'Connessione a GitHub Copilot CLI tramite bridge ACP.',
     'connect.harness.mimo': 'Connessione a MiMo Code tramite bridge ACP.',
+    'connect.harness.deepseek': 'Connessione a DeepSeek Harness tramite bridge ACP.',
     'connect.addressHint': 'Usa l’indirizzo LAN del computer che esegue l’harness.',
     'connect.runOnHost': 'Esegui sul computer host',
     'connect.copyCommand': 'Copia comando',
@@ -2612,6 +2618,7 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'detail.opencode2': '🤖 OpenCode 2',
     'detail.copilot': '🤖 GitHub Copilot CLI',
     'detail.mimo': '🤖 MiMo Code',
+    'detail.deepseek': '🐋 DeepSeek Harness',
     'detail.projectDashboardLabel': '專案與 VCS 儀表板',
     'detail.projectLabel': '專案',
     'detail.vcsLabel': 'VCS',
@@ -2718,6 +2725,7 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'connect.harness.codex': '透過 ACP bridge 連線到 Codex CLI。',
     'connect.harness.copilot': '透過 ACP bridge 連線到 GitHub Copilot CLI。',
     'connect.harness.mimo': '透過 ACP bridge 連線到 MiMo Code。',
+    'connect.harness.deepseek': '透過 ACP bridge 連線到 DeepSeek Harness。',
     'connect.addressHint': '使用執行 harness 的電腦之區域網路位址。',
     'connect.runOnHost': '在主機上執行',
     'connect.copyCommand': '複製命令',
@@ -3386,6 +3394,7 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'detail.opencode2': '🤖 OpenCode 2',
     'detail.copilot': '🤖 GitHub Copilot CLI',
     'detail.mimo': '🤖 MiMo Code',
+    'detail.deepseek': '🐋 DeepSeek Harness',
     'detail.projectDashboardLabel': '项目与 VCS 仪表盘',
     'detail.projectLabel': '项目',
     'detail.vcsLabel': 'VCS',
@@ -3492,6 +3501,7 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'connect.harness.codex': '通过 ACP 桥接器连接到 Codex CLI。',
     'connect.harness.copilot': '通过 ACP 桥接器连接到 GitHub Copilot CLI。',
     'connect.harness.mimo': '通过 ACP 桥接器连接到 MiMo Code。',
+    'connect.harness.deepseek': '通过 ACP 桥接器连接到 DeepSeek Harness。',
     'connect.addressHint': '请使用运行 harness 的电脑的局域网地址。',
     'connect.runOnHost': '在主机上运行',
     'connect.copyCommand': '复制命令',
@@ -4160,6 +4170,7 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'detail.opencode2': '🤖 OpenCode 2',
     'detail.copilot': '🤖 GitHub Copilot CLI',
     'detail.mimo': '🤖 MiMo Code',
+    'detail.deepseek': '🐋 DeepSeek Harness',
     'detail.projectDashboardLabel': 'Painel do projeto e do VCS',
     'detail.projectLabel': 'Projeto',
     'detail.vcsLabel': 'VCS',
@@ -4333,6 +4344,7 @@ const translations: Record<LanguageCode, Partial<Record<TranslationKey, string>>
     'connect.harness.codex': 'Conecte ao Codex CLI por meio da bridge ACP.',
     'connect.harness.copilot': 'Conecte ao GitHub Copilot CLI por meio da bridge ACP.',
     'connect.harness.mimo': 'Conecte ao MiMo Code por meio da bridge ACP.',
+    'connect.harness.deepseek': 'Conecte ao DeepSeek Harness por meio da bridge ACP.',
     'connect.addressHint': 'Use o endereço de LAN da máquina que executa o harness.',
     'connect.runOnHost': 'Execute na máquina host',
     'connect.copyCommand': 'Copiar comando',
