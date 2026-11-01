@@ -224,9 +224,9 @@ test("npx ACP clients share one daemon cache but never start an install at the s
   assert.equal(clients.length, 2)
   assert.equal(clients[0].options.environment.CODEX_PATH, "/tools/codex")
   assert.equal(clients[1].options.environment.CODEX_PATH, "/tools/codex")
-  assert.equal(clients[0].options.environment.npm_config_cache, "/state/npm-cache")
-  assert.equal(clients[1].options.environment.npm_config_cache, "/state/npm-cache")
-  assert.equal(runtime.modelCatalog.options.environment.npm_config_cache, "/state/npm-cache")
+  assert.equal(clients[0].options.environment.npm_config_cache, path.join("/state", "npm-cache"))
+  assert.equal(clients[1].options.environment.npm_config_cache, path.join("/state", "npm-cache"))
+  assert.equal(runtime.modelCatalog.options.environment.npm_config_cache, path.join("/state", "npm-cache"))
 
   // The user-facing and catalog clients start in parallel on first use; two installs must not.
   await Promise.all([runtime.agent.start(), runtime.modelCatalog.options.agent.start()])

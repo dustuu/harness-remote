@@ -453,6 +453,51 @@ test("machine handoff continues a Session that lives outside the roots in its ow
   }
 })
 
+test("machine handoff does not trust an HTTP Session listing without a reported directory", async () => {
+  const daemon = new MachineDaemon({ id: "machine_test", name: "workstation" })
+  const http = new FakeHttpHost()
+  const pi = new FakeAcp()
+  daemon.registerManagedHttpHost({ id: "opencode", host: http })
+  daemon.registerAcpHost({ id: "pi", agent: pi, bridgeConfig: { backend: "pi" } })
+  const base = await mkdtemp(path.join(tmpdir(), "harness-handoff-http-"))
+  const root = path.join(base, "root")
+  const outside = path.join(base, "outside")
+  await Promise.all([mkdir(root), mkdir(outside)])
+  let claimOptions
+  let created = false
+  createMachineDaemonServer({
+    daemon,
+    config: { backend: "pi", port: 4097, roots: [root], stateDirectory: path.join(base, "state") },
+    primaryAcp: pi,
+    sessionOperationLedger: { marker: "ledger" },
+    createServer: () => ({
+      acpService: {
+        async listSessions() { return [] },
+        async createSession() { created = true; return { id: "pi-new" } }
+      },
+      emit() {}
+    }),
+    createRouter: () => ({ marker: "router" }),
+    createClaimServer: (options) => { claimOptions = options; return { marker: "claim" } },
+    createLaunchServer: ({ innerServer }) => innerServer,
+    createModelServer: ({ innerServer }) => innerServer,
+    createFinishServer: ({ innerServer }) => innerServer,
+    createWorkThreadServerFactory: ({ innerServer }) => innerServer
+  })
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () => Response.json({ sessions: [{ id: "source-native-1" }] })
+  try {
+    await assert.rejects(
+      claimOptions.handoffSession("opencode", "source-native-1", { targetAgentID: "pi", directory: outside }),
+      (error) => error.code === "invalid_request"
+    )
+    assert.equal(created, false)
+  } finally {
+    globalThis.fetch = originalFetch
+    await rm(base, { recursive: true, force: true })
+  }
+})
+
 test("machine Session mutations acquire ACP ownership lazily and reuse it", async () => {
   const daemon = new MachineDaemon({ id: "machine_test", name: "workstation" })
   const codex = new FakeAcp()

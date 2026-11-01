@@ -476,7 +476,10 @@ export function createMachineDaemonServer({
     return sessions
       .map((session) => ({
         id: session?.id || session?.sessionId,
-        directory: session?.directory || session?.cwd || directory
+        // A directory supplied in the query is only a filter, not evidence of where the
+        // harness says this Session lives. Handoff uses the reported directory as authority
+        // when allowing a Project outside --root.
+        directory: session?.directory || session?.cwd
       }))
       .filter((session) => session.id && (!directory || session.directory === directory))
   }
