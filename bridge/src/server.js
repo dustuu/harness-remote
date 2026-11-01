@@ -1,7 +1,7 @@
 import http from "node:http"
 import { readdir, realpath } from "node:fs/promises"
 import path from "node:path"
-import { selectableAcpModelValue } from "./agent-model-catalog.js"
+import { selectableAcpModelValue, splitAcpModelValue } from "./agent-model-catalog.js"
 import { AcpPromptEchoFilter } from "./acp-prompt-echo-filter.js"
 import { AcpService } from "./acp-service.js"
 import { harnessProfile } from "./harness-profiles.js"
@@ -160,18 +160,15 @@ function messageLimit(url) {
  * A bare id is presented under the backend's own name instead, so it reads and behaves like the
  * others, `claude/sonnet`. `AcpService.setModel` puts it back to the id the agent knows.
  */
-function providersResponse(models, fallbackProviderID) {
+function providersResponse(models, fallbackProviderID, providerLabels = {}) {
   const providers = new Map()
   const defaults = {}
   const modelOption = { options: models }
   for (const option of models) {
     const value = selectableAcpModelValue(option.value, modelOption, fallbackProviderID)
-    const separator = value.indexOf("/")
-    const flat = separator <= 0
-    const providerID = flat ? fallbackProviderID : value.slice(0, separator)
-    const modelID = flat ? value : value.slice(separator + 1)
+    const { providerID, modelID } = splitAcpModelValue(value, fallbackProviderID)
     if (!providerID || !modelID) continue
-    const provider = providers.get(providerID) ?? { id: providerID, name: providerID, models: {} }
+    const provider = providers.get(providerID) ?? { id: providerID, name: providerLabels[providerID] || providerID, models: {} }
     const model = provider.models[modelID] ?? {
       id: modelID,
       name: option.name ?? modelID,
@@ -564,7 +561,7 @@ export function createBridgeServer({ config, acp, serviceOptions, machineRegistr
           writeJSON(response, 200, { providers: [], default: {} })
           return
         }
-        writeJSON(response, 200, providersResponse(await service.models(sessionID), backend))
+        writeJSON(response, 200, providersResponse(await service.models(sessionID), backend, profile.modelProviderLabels))
         return
       }
       writeJSON(response, 404, { error: "Not found" })

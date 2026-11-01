@@ -382,7 +382,7 @@ function sameModel(left: ModelSelection | null, right: ModelSelection | null): b
 }
 
 /** Backends whose transcript reads report the Session's own current model on the page itself. */
-const PAGE_MODEL_BACKENDS = new Set(["opencode", "opencode2", "codex", "omp", "copilot", "mimo"])
+const PAGE_MODEL_BACKENDS = new Set(["opencode", "opencode2", "codex", "omp", "copilot", "mimo", "deepseek"])
 
 /**
  * Model enrichment is not a mount-only read. A user can leave immediately after Send, before the

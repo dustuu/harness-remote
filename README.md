@@ -6,7 +6,7 @@
 
 **A local-first control plane for native AI coding-agent sessions.**
 
-Run, observe, resume and continue work across **Codex CLI, Claude Code, GitHub Copilot CLI, OpenCode, MiMo Code, Oh My Pi and PI** from desktop, web or Android — while code, credentials and native Sessions stay on your own machines.
+Run, observe, resume and continue work across **Codex CLI, Claude Code, GitHub Copilot CLI, OpenCode, DeepSeek Harness, MiMo Code, Oh My Pi and PI** from desktop, web or Android — while code, credentials and native Sessions stay on your own machines.
 
 [![GitHub stars](https://img.shields.io/github/stars/giuliastro/harness-remote?style=flat&logo=github)](https://github.com/giuliastro/harness-remote/stargazers)
 [![Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-555)](LICENSE)
@@ -114,9 +114,9 @@ See the [Quick start guide](docs/QUICK_START.md) for advanced options and troubl
 
 ## What it gives you
 
-- **Native Sessions** — existing Sessions remain owned by Codex, Claude, Copilot, OpenCode, MiMo, OMP or PI.
+- **Native Sessions** — existing Sessions remain owned by Codex, Claude, Copilot, OpenCode, DeepSeek, MiMo, OMP or PI.
 - **Remote control** — follow activity, send prompts, Stop turns and handle supported questions/permissions.
-- **Prompt while the agent works** — a prompt sent mid-turn is never blocked: Codex takes it into the running turn, every other harness queues it in a **Queued** strip above the composer, where each waiting prompt can be withdrawn on its own.
+- **Prompt while the agent works** — a prompt sent mid-turn is never blocked: Codex and DeepSeek take it into the running turn, every other harness queues it in a **Queued** strip above the composer, where each waiting prompt can be withdrawn on its own.
 - **Background work that comes back** — when a Claude Code subagent, background command or monitor finishes, the agent's follow-up turn appears live in the Session, exactly as in the CLI, with no prompt from you.
 - **One workspace** — Machines → Projects → native Sessions.
 - **Cross-agent continuation** — continue a task with another coding agent without pretending their hidden contexts are the same.
@@ -172,6 +172,7 @@ That means you can start in a normal CLI, open Harness Remote later, find the sa
 | **GitHub Copilot CLI** | `copilot` | Native ACP (`copilot --acp`) |
 | **OpenCode 2** | `opencode2` | Native ACP (`opencode acp`) |
 | **OpenCode Legacy (v1)** | `opencode` | HTTP + live event stream |
+| **DeepSeek Harness** | `deepseek` | DeepSeek Harness ACP adapter |
 | **MiMo Code** | `mimo` | Native ACP (`mimo acp`) |
 | **Oh My Pi (OMP)** | `omp` | Native ACP (`omp acp`) |
 | **PI** | `pi` | PI ACP adapter |

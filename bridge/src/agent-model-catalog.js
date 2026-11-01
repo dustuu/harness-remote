@@ -17,11 +17,23 @@ function withTimeout(promise, timeoutMs, label) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
 }
 
+/**
+ * Split a native ACP model value into the `provider/model` shape the app uses.
+ *
+ * Most adapters use `/`, but DeepSeek Harness names a selection `deepseek-official::deepseek-flash`.
+ * `::` is checked first so a provider or model id that itself contains `/` still splits at the
+ * separator the adapter actually chose.
+ */
+export function splitAcpModelValue(value, fallbackProviderID) {
+  for (const separator of ["::", "/"]) {
+    const index = value.indexOf(separator)
+    if (index > 0) return { providerID: value.slice(0, index), modelID: value.slice(index + separator.length) }
+  }
+  return { providerID: fallbackProviderID, modelID: value }
+}
+
 function splitModelValue(value, fallbackProviderID) {
-  const separator = value.indexOf("/")
-  return separator > 0
-    ? { providerID: value.slice(0, separator), modelID: value.slice(separator + 1) }
-    : { providerID: fallbackProviderID, modelID: value }
+  return splitAcpModelValue(value, fallbackProviderID)
 }
 
 function finiteNumber(value) {
@@ -71,7 +83,7 @@ function dedupeModels(models) {
 
 export function modelValueIsExcluded(value, prefixes = []) {
   if (typeof value !== "string") return false
-  return prefixes.some((prefix) => value === prefix || value.startsWith(`${prefix}/`))
+  return prefixes.some((prefix) => value === prefix || value.startsWith(`${prefix}/`) || value.startsWith(`${prefix}::`))
 }
 
 export function splitInlineAcpModelVariant(value, option, variantValues = []) {
@@ -114,11 +126,16 @@ export function modelValueForSelection(model, option, fallbackProviderID) {
       ? model.variantValue
       : undefined
   }
-  const wanted = model.providerID === fallbackProviderID ? model.modelID : `${model.providerID}/${model.modelID}`
-  return option.options.find((candidate) =>
-    typeof candidate?.value === "string"
-      && selectableAcpModelValue(candidate.value, option, fallbackProviderID) === wanted
-  )?.value
+  const wanted = {
+    providerID: model.providerID === fallbackProviderID ? fallbackProviderID : model.providerID,
+    modelID: model.modelID
+  }
+  return option.options.find((candidate) => {
+    if (typeof candidate?.value !== "string") return false
+    const selectable = selectableAcpModelValue(candidate.value, option, fallbackProviderID)
+    const parsed = splitModelValue(selectable, fallbackProviderID)
+    return parsed.providerID === wanted.providerID && parsed.modelID === wanted.modelID
+  })?.value
 }
 
 /**
@@ -139,7 +156,7 @@ export function normalizedAcpModelCandidates(option, excludedValuePrefixes = [],
     groups.set(modelValue, group)
   }
   const rank = (modelValue) => {
-    const providerID = modelValue.slice(0, modelValue.indexOf("/"))
+    const { providerID } = splitModelValue(modelValue, "")
     const index = providerOrder.indexOf(providerID)
     return index < 0 ? undefined : index
   }
@@ -180,14 +197,14 @@ export function selectableAcpModelValue(value, option, providerID) {
   return hasBareSibling ? value : bare
 }
 
-function modelFromConfigCandidate(candidate, option, fallbackProviderID) {
+function modelFromConfigCandidate(candidate, option, fallbackProviderID, providerLabels = {}) {
   if (typeof candidate?.value !== "string" || !candidate.value || candidate.disabled === true) return undefined
   const selectableValue = selectableAcpModelValue(candidate.value, option, fallbackProviderID)
   const { providerID, modelID } = splitModelValue(selectableValue, fallbackProviderID)
   if (!providerID || !modelID) return undefined
   return {
     providerID,
-    providerName: candidate.providerName || providerID,
+    providerName: candidate.providerName || providerLabels[providerID] || providerID,
     modelID,
     modelName: candidate.name ?? modelID,
     description: candidate.description || undefined,
@@ -205,11 +222,11 @@ function modelFromConfigCandidate(candidate, option, fallbackProviderID) {
   }
 }
 
-export function modelsFromConfigOptions(configOptions, fallbackProviderID, excludedValuePrefixes = [], { inlineVariantValues = [], providerOrder = [] } = {}) {
+export function modelsFromConfigOptions(configOptions, fallbackProviderID, excludedValuePrefixes = [], { inlineVariantValues = [], providerOrder = [], providerLabels = {} } = {}) {
   const option = configOptions?.find((item) => item?.id === "model")
   if (!option || !Array.isArray(option.options)) return []
   return dedupeModels(normalizedAcpModelCandidates(option, excludedValuePrefixes, inlineVariantValues, providerOrder).flatMap((candidate) => {
-    const model = modelFromConfigCandidate(candidate, option, fallbackProviderID)
+    const model = modelFromConfigCandidate(candidate, option, fallbackProviderID, providerLabels)
     return model ? [model] : []
   }))
 }
@@ -337,6 +354,7 @@ export class AcpAgentModelCatalog extends CachedCatalog {
     excludedModelValuePrefixes = [],
     inlineModelVariantValues = [],
     modelProviderOrder = [],
+    modelProviderLabels = {},
     cleanupSession,
     releaseAfterRefresh = false
   }) {
@@ -349,6 +367,7 @@ export class AcpAgentModelCatalog extends CachedCatalog {
     this.excludedModelValuePrefixes = [...new Set(excludedModelValuePrefixes)]
     this.inlineModelVariantValues = [...new Set(inlineModelVariantValues)]
     this.modelProviderOrder = [...new Set(modelProviderOrder)]
+    this.modelProviderLabels = { ...modelProviderLabels }
     this.cleanupSession = typeof cleanupSession === "function" ? cleanupSession : undefined
     this.releaseAfterRefresh = releaseAfterRefresh
     this.stateFile = path.join(stateDirectory, `model-catalog-${agentID}.json`)
@@ -436,7 +455,8 @@ export class AcpAgentModelCatalog extends CachedCatalog {
   async #probeVariants(configOptions, catalogDeadline) {
     const baseModels = modelsFromConfigOptions(configOptions, this.agentID, this.excludedModelValuePrefixes, {
       inlineVariantValues: this.inlineModelVariantValues,
-      providerOrder: this.modelProviderOrder
+      providerOrder: this.modelProviderOrder,
+      providerLabels: this.modelProviderLabels
     })
     const modelOption = configOptions?.find((item) => item?.id === "model")
     if (!baseModels.length || !this.variantConfigIDs.length || !this.sessionID || !modelOption || !Array.isArray(modelOption.options)) {
@@ -449,7 +469,7 @@ export class AcpAgentModelCatalog extends CachedCatalog {
       this.excludedModelValuePrefixes,
       this.inlineModelVariantValues,
       this.modelProviderOrder
-    ).filter((candidate) => !candidate.variant && modelFromConfigCandidate(candidate, modelOption, this.agentID))
+    ).filter((candidate) => !candidate.variant && modelFromConfigCandidate(candidate, modelOption, this.agentID, this.modelProviderLabels))
     const originalModel = modelOption.currentValue
     const ordered = [...candidates].sort((left, right) => {
       if (left?.value === originalModel) return -1
@@ -462,7 +482,7 @@ export class AcpAgentModelCatalog extends CachedCatalog {
     this.variantProbe = { total: ordered.length, completed: 0, incomplete: false, lastError: null }
 
     for (const rawModel of ordered) {
-      const base = modelFromConfigCandidate(rawModel, modelOption, this.agentID)
+      const base = modelFromConfigCandidate(rawModel, modelOption, this.agentID, this.modelProviderLabels)
       if (!base) continue
       let effectiveOptions = configOptions
       if (rawModel.value !== currentModel) {
@@ -505,8 +525,23 @@ export class AcpAgentModelCatalog extends CachedCatalog {
     }
 
     if (this.variantProbe.completed < this.variantProbe.total) this.variantProbe.incomplete = true
-    // This Session exists only for catalog inspection. Restoring its original model would add more
-    // RPC latency without changing any user Session, so the probe deliberately stops here.
+    // Some harnesses derive the default model of a new Session from the last selected model
+    // anywhere on the machine. DSH does exactly that, so leaving this technical Session on the last
+    // probed model silently made DeepSeek V4 Pro the default after a catalog refresh. Restore the
+    // original selection; a failed restore only costs a diagnostic, because discovery already
+    // succeeded and the technical Session is closed afterwards.
+    if (typeof originalModel === "string" && originalModel && currentModel !== originalModel) {
+      try {
+        await this.agent.request("session/set_config_option", {
+          sessionId: this.sessionID,
+          configId: "model",
+          value: originalModel
+        }, ACP_VARIANT_REQUEST_TIMEOUT_MS)
+        currentModel = originalModel
+      } catch (error) {
+        this.variantProbe.lastError = error instanceof Error ? error.message : String(error)
+      }
+    }
     return dedupeModels([...baseModels, ...variants])
   }
 
@@ -518,7 +553,8 @@ export class AcpAgentModelCatalog extends CachedCatalog {
       const options = await this.#refreshOptions(deadline)
       const baseModels = modelsFromConfigOptions(options, this.agentID, this.excludedModelValuePrefixes, {
         inlineVariantValues: this.inlineModelVariantValues,
-        providerOrder: this.modelProviderOrder
+        providerOrder: this.modelProviderOrder,
+        providerLabels: this.modelProviderLabels
       })
       if (!baseModels.length) throw new Error(`Agent ${this.agentID} did not advertise any models`)
       this.phase = "probing-variants"

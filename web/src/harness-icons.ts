@@ -15,6 +15,7 @@ const BRAND_ICON_FILES: Record<string, string> = {
   claude: "brand/claude.svg",
   copilot: "brand/copilot.svg",
   mimo: "brand/mimo.svg",
+  deepseek: "brand/deepseek.svg",
   opencode: "brand/opencode.svg",
   opencode2: "brand/opencode.svg",
   omp: "omp.svg",
@@ -28,6 +29,7 @@ const BRAND_PROVIDER_ICON_FILES: Record<string, string> = {
   anthropic: "brand/claude.svg",
   "github-copilot": "brand/copilot.svg",
   xiaomi: "brand/mimo.svg",
+  "deepseek-official": "brand/deepseek.svg",
   "opencode-go": "brand/opencode.svg"
 }
 

@@ -1896,6 +1896,55 @@ test("offers models a harness names without a provider prefix, and sets them bac
   }
 })
 
+class DoubleColonModelAcp extends FlatModelAcp {
+  async request(method, params) {
+    if (method === "session/load" || method === "session/new") {
+      return {
+        sessionId: "session-1",
+        configOptions: [{
+          id: "model",
+          currentValue: "deepseek-official::deepseek-flash",
+          options: [
+            { value: "deepseek-official::deepseek-flash", name: "DeepSeek-V4.1-Flash (DeepSeek)" },
+            { value: "deepseek-official::deepseek-v4-pro", name: "DeepSeek-V4-Pro (DeepSeek)" }
+          ]
+        }]
+      }
+    }
+    return super.request(method, params)
+  }
+}
+
+test("DeepSeek Harness `::` values are grouped by provider and sent back verbatim", async () => {
+  const acp = new DoubleColonModelAcp()
+  const bridge = await startServer({ acp, backend: "deepseek" })
+  try {
+    const listed = await fetch(`${bridge.baseURL}/config/providers?sessionID=session-1`, { headers: authHeaders() })
+    const body = await listed.json()
+    assert.equal(body.providers.length, 1)
+    const provider = body.providers[0]
+    assert.equal(provider.id, "deepseek-official")
+    assert.equal(provider.name, "DeepSeek")
+    assert.deepEqual(Object.keys(provider.models).sort(), ["deepseek-flash", "deepseek-v4-pro"])
+    assert.equal(provider.models["deepseek-flash"].name, "DeepSeek-V4.1-Flash (DeepSeek)")
+    assert.equal(body.default[provider.id], "deepseek-flash")
+
+    const prompted = await fetch(`${bridge.baseURL}/session/session-1/prompt_async`, {
+      method: "POST",
+      headers: jsonHeaders(),
+      body: JSON.stringify({
+        parts: [{ type: "text", text: "hello" }],
+        model: { providerID: "deepseek-official", modelID: "deepseek-v4-pro" }
+      })
+    })
+    assert.equal(prompted.status, 200)
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.deepEqual(acp.models, ["deepseek-official::deepseek-v4-pro"])
+  } finally {
+    await bridge.close()
+  }
+})
+
 test("keeps provider/model values untouched for the harnesses that use them", async () => {
   const acp = new HeldTurnOmpAcp()
   const bridge = await startServer({ acp })

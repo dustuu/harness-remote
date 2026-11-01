@@ -109,11 +109,11 @@ test("generic ACP capability contract consumes provider-declared Session semanti
 
 test("existing ACP harnesses are exposed through the same provider registry", () => {
   const providers = listAcpProviderProfiles()
-  assert.deepEqual(providers.map((provider) => provider.id), ["omp", "pi", "claude", "copilot", "opencode2", "mimo", "codex"])
-  assert.deepEqual(providers.map((provider) => provider.detectCommands), [["omp"], ["pi"], ["claude"], ["copilot"], ["opencode2", "opencode"], ["mimo"], ["codex"]])
+  assert.deepEqual(providers.map((provider) => provider.id), ["omp", "pi", "claude", "copilot", "opencode2", "mimo", "codex", "deepseek"])
+  assert.deepEqual(providers.map((provider) => provider.detectCommands), [["omp"], ["pi"], ["claude"], ["copilot"], ["opencode2", "opencode"], ["mimo"], ["codex"], ["dsh", "dsh-acp"]])
   assert.deepEqual(
     providers.slice().sort((left, right) => left.launchPriority - right.launchPriority).map((provider) => provider.id),
-    ["codex", "claude", "omp", "pi", "copilot", "opencode2", "mimo"]
+    ["codex", "claude", "omp", "pi", "copilot", "opencode2", "mimo", "deepseek"]
   )
   for (const provider of providers) {
     assert.ok(provider.sessionContract)

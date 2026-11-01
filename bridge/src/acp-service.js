@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises"
 import path from "node:path"
-import { selectableAcpModelValue, modelConfigOptionFromSessionResponse, modelValueIsExcluded, normalizedAcpModelCandidates, splitInlineAcpModelVariant } from "./agent-model-catalog.js"
+import { selectableAcpModelValue, modelConfigOptionFromSessionResponse, modelValueIsExcluded, normalizedAcpModelCandidates, splitAcpModelValue, splitInlineAcpModelVariant } from "./agent-model-catalog.js"
 import { TranscriptCache } from "./transcript-cache.js"
 import { stripAmbientContext } from "./ambient-context.js"
 import {
@@ -1424,8 +1424,10 @@ export class AcpService {
     const inline = splitInlineAcpModelVariant(wireValue, option, this.#inlineModelVariantValues)
     const current = inline?.modelValue ?? wireValue
     if (typeof current !== "string") return this.#fallbackModelSelections.get(sessionID)
-    const separator = current.indexOf("/")
-    if (separator <= 0 && !this.#modelProviderID || separator === current.length - 1) return undefined
+    // A native value may use `provider/model` or DeepSeek Harness's `provider::model`; both read as
+    // the same selection once split, and a bare id is presented under this backend's own name.
+    const { providerID, modelID } = splitAcpModelValue(current, this.#modelProviderID)
+    if (!modelID || (!providerID && !this.#modelProviderID)) return undefined
     // The reasoning variant belongs to the selection: reporting the model without it would let the
     // app carry the next turn on with the variant silently dropped.
     const selectedVariant = inline?.variant ?? this.#modelVariantConfigIDs
@@ -1433,8 +1435,8 @@ export class AcpService {
       .find((value) => typeof value === "string" && value)
     const variant = this.#modelVariantDefaultValues.includes(selectedVariant) ? undefined : selectedVariant
     return {
-      providerID: separator > 0 ? current.slice(0, separator) : this.#modelProviderID,
-      modelID: separator > 0 ? current.slice(separator + 1) : current,
+      providerID,
+      modelID,
       ...(variant ? { variant } : {})
     }
   }
@@ -1653,14 +1655,24 @@ export class AcpService {
     }
     // The app addresses models as `provider/model` because that is what OpenCode's API does, but a
     // harness whose ids carry no provider — Claude Code's `sonnet`, `opus[1m]` — is shown under the
-    // backend's name to keep it consistent. Resolve against what the agent actually offered rather
-    // than trusting either spelling: exact first, then the part after the synthesised provider.
-    const separator = model.indexOf("/")
-    const providerID = separator > 0 ? model.slice(0, separator) : ""
-    const modelID = separator > 0 ? model.slice(separator + 1) : model
+    // backend's name to keep it consistent. DeepSeek Harness also separates provider and model with
+    // `::`, so split through the same helper the catalog uses instead of assuming one spelling.
+    // Resolve against what the agent actually offered rather than trusting any spelling: exact
+    // first, then the part after the synthesised provider.
+    const { providerID, modelID } = splitAcpModelValue(model, this.#modelProviderID)
+    // A bare native id is offered under this backend's name. When the service was created without
+    // one (the smoke harness), the provider the caller sent identifies it instead.
+    const fallbackProviderID = this.#modelProviderID ?? providerID
     let value = option?.options?.find((candidate) => candidate.value === model)?.value
       ?? option?.options?.find((candidate) => candidate.value === modelID)?.value
-      ?? option?.options?.find((candidate) => selectableAcpModelValue(candidate.value, option, providerID) === modelID)?.value
+      ?? option?.options?.find((candidate) => {
+        if (typeof candidate?.value !== "string") return false
+        const parsed = splitAcpModelValue(
+          selectableAcpModelValue(candidate.value, option, providerID),
+          fallbackProviderID
+        )
+        return parsed.providerID === (providerID || fallbackProviderID) && parsed.modelID === modelID
+      })?.value
     if (!value) throw new Error(`Harness model is not available: ${model}`)
     if (modelValueIsExcluded(value, this.#excludedModelValuePrefixes)) {
       const error = new Error(`Harness model is unavailable: ${model}`)
@@ -1916,6 +1928,10 @@ export class AcpService {
    *   flight, and the adapter started this prompt as a turn of its own. The steering response
    *   resolved at turn start rather than turn end, so the session re-enters turn state here to keep
    *   streaming tool calls and text recorded, and the adopted turn settles from its own silence.
+   * - `{outcome: "promptRequired", reason: "noRunningTurn"}`: DeepSeek Harness reports that the
+   *   turn ended before the input could join it and asks for an ordinary `session/prompt` instead.
+   *   Nothing was delivered, so the recorded message either joins the queue behind a turn that has
+   *   already replaced the old one, or becomes a regular turn of its own.
    * - error: an adapter that predates steering refuses the method, and an adapter can refuse the
    *   input itself. The recorded prompt then joins the ordinary queue - the message id stays, so
    *   nothing is redelivered twice.
@@ -1931,16 +1947,17 @@ export class AcpService {
         prompt: this.#promptBlocks(text, attachments)
       }, 300_000)
     } catch (error) {
-      if (this.#active.has(sessionID)) {
-        const queue = this.#queues.get(sessionID) ?? []
-        queue.push({ text, model: undefined, messageID, attachments, variant })
-        this.#queues.set(sessionID, queue)
-        this.#setPromptQueued(sessionID, messageID, true)
-        this.#emit("session.updated", sessionID)
-        return { disposition: "queued", messageID }
-      }
+      if (this.#active.has(sessionID)) return this.#queueSteeredPrompt(sessionID, text, attachments, variant, messageID)
       // The live turn ended underneath the failed steering request. Keep the recorded message (it
       // now reads as the newest user turn of an idle session) and replay it as a regular turn.
+      this.#startTurn(sessionID, text, true, attachments)
+      return { disposition: "started", messageID }
+    }
+    if (result?.outcome === "promptRequired") {
+      // The adapter received the request but refused to inject because no turn was running any
+      // more. If another turn started meanwhile this input waits behind it; otherwise the message
+      // this bridge already recorded is replayed as a regular turn, never recorded a second time.
+      if (this.#active.has(sessionID)) return this.#queueSteeredPrompt(sessionID, text, attachments, variant, messageID)
       this.#startTurn(sessionID, text, true, attachments)
       return { disposition: "started", messageID }
     }
@@ -1967,6 +1984,22 @@ export class AcpService {
     this.#startAdoptedTurnSweep()
     // The adapter ran the prompt as a turn of its own, which is what a client must show.
     return { disposition: "started", messageID }
+  }
+
+  /**
+   * Put an already-recorded steering attempt into the ordinary queue.
+   *
+   * Both the adapter refusing the method and DeepSeek Harness's `promptRequired` mean the content
+   * was not delivered. The recorded row must stay - it is what the user sent - and the queued flag
+   * is the only state the client reads to show it as waiting instead of as an answered turn.
+   */
+  #queueSteeredPrompt(sessionID, text, attachments, variant, messageID) {
+    const queue = this.#queues.get(sessionID) ?? []
+    queue.push({ text, model: undefined, messageID, attachments, variant })
+    this.#queues.set(sessionID, queue)
+    this.#setPromptQueued(sessionID, messageID, true)
+    this.#emit("session.updated", sessionID)
+    return { disposition: "queued", messageID }
   }
 
   /**

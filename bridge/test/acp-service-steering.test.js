@@ -44,6 +44,12 @@ class RecordingSteeringAcp {
     }
     if (method === "_session/steering") {
       if (this.steer === "reject") throw new Error("steering is not supported here")
+      if (this.steer === "promptRequired") {
+        // The turn drained before the adapter could inject. The response only becomes meaningful
+        // once the caller has observed the first turn end, mirroring DeepSeek Harness.
+        await new Promise((resolve) => { this.releasePromptRequired = resolve })
+        return { outcome: "promptRequired", reason: "noRunningTurn" }
+      }
       // The real adapter starts a steering turn only after the previous prompt has drained, so the
       // startedNewTurn outcome arrives after the first session/prompt response, never alongside it.
       if (this.steer === "startedNewTurn" && !this.previousPromptDone) {
@@ -162,7 +168,28 @@ test("a steering request that resolves startedNewTurn keeps the session busy unt
   assert.equal(service.status("s1").type, "idle")
 })
 
-test("harness profiles declare exactly one steering harness", () => {
+test("promptRequired from DeepSeek Harness starts the recorded prompt when the turn already ended", async () => {
+  const acp = new RecordingSteeringAcp({ holdPrompt: true, steer: "promptRequired" })
+  const service = new AcpService(acp, { midTurnPrompt: "steer" })
+  const first = service.prompt("s1", "first")
+  await waitFor(() => service.status("s1").type === "busy", "the first turn never started")
+  const second = service.prompt("s1", "second")
+  await waitFor(() => typeof acp.releasePromptRequired === "function", "the steering request never reached the adapter")
+  acp.releasePrompt?.()
+  await first
+  await waitFor(() => service.status("s1").type === "idle", "the first turn never settled")
+  // The adapter now reports that no turn was running to inject into. The already-recorded prompt
+  // must become an ordinary turn, not be queued forever behind a turn that is gone and not be
+  // recorded a second time.
+  acp.releasePromptRequired()
+  assert.equal((await second).disposition, "started")
+  await waitFor(() => acp.calls.filter(([method]) => method === "session/prompt").length >= 2, "the recorded prompt never started a turn")
+  const prompts = acp.calls.filter(([method]) => method === "session/prompt").map(([, params]) => params.prompt[0].text)
+  assert.deepEqual(prompts, ["first", "second"])
+  assert.equal(await userMessageCount(service), 2)
+})
+
+test("harness profiles declare the steering harnesses", () => {
   const steering = Object.entries({
     omp: harnessProfile("omp"),
     pi: harnessProfile("pi"),
@@ -170,9 +197,10 @@ test("harness profiles declare exactly one steering harness", () => {
     copilot: harnessProfile("copilot"),
     opencode2: harnessProfile("opencode2"),
     mimo: harnessProfile("mimo"),
-    codex: harnessProfile("codex")
+    codex: harnessProfile("codex"),
+    deepseek: harnessProfile("deepseek")
   }).filter(([, profile]) => profile.capabilities.midTurnPrompt === "steer").map(([id]) => id)
-  assert.deepEqual(steering, ["codex"])
+  assert.deepEqual(steering, ["codex", "deepseek"])
 })
 
 /** A fake adapter that also streams session/update notifications, for transcript-order checks. */

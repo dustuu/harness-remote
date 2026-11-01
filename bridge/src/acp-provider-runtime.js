@@ -129,6 +129,7 @@ export async function createAcpProviderRuntime({
     excludedModelValuePrefixes: provider.excludedModelValuePrefixes,
     inlineModelVariantValues: provider.inlineModelVariantValues,
     modelProviderOrder: provider.modelProviderOrder,
+    modelProviderLabels: provider.modelProviderLabels,
     command: launch.command,
     environment,
     releaseAfterRefresh: provider.sessionListScope === "project",

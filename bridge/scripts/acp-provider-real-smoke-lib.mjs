@@ -76,12 +76,15 @@ export async function runAcpProviderRealSmoke(providerID, {
     acp.on("stderr", (line) => process.stderr.write(`[${providerID}] ${line}\n`))
     const service = new AcpService(new AcpPromptEchoFilter(acp), {
       replayAuthoritative: profile.replayAuthoritative,
+      replayUserChunksAreMessages: profile.replayUserChunksAreMessages,
       historyLoader: profile.historyLoader,
       preserveListedTimestamps: profile.preserveListedTimestamps,
       reloadOnHistoryRefresh: profile.reloadOnHistoryRefresh,
       replaySettleMs: profile.replaySettleMs,
       promptSettleMs: profile.promptSettleMs,
-      modelVariantConfigIDs: profile.modelVariantConfigIDs
+      modelVariantConfigIDs: profile.modelVariantConfigIDs,
+      modelProviderID: profile.id,
+      midTurnPrompt: profile.capabilities?.midTurnPrompt
     })
     return { acp, service }
   }
