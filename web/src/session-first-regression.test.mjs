@@ -216,4 +216,13 @@ assert.ok(foregroundHandler.includes('document.visibilityState !== "visible"'), 
 assert.ok(foregroundHandler.includes('clearSessionIndexLiveStatuses()'), 'foregrounding must drop stale transient live statuses')
 assert.ok(foregroundHandler.includes('setListRevision((value) => value + 1)'), 'foregrounding must force one Session-index re-read')
 
+// ACP adapters start lazily, so `configured` is a normal idle state and must not pin the machine
+// timer to the historical 10s cadence. Only an adapter reported broken warrants the fast refresh,
+// because its recovery never reaches the Session event stream.
+assert.match(
+  standalone,
+  /unsettledAgents: runtimes\.some\(\(runtime\) => runtime\.state === "online"[\s\S]{0,120}runtime\.snapshot\?\.agents\.some\(\(agent\) => agent\.state === "unavailable"\)\)/,
+  'only an unavailable harness keeps the machine snapshot on the normal cadence'
+)
+
 console.log('session-first v3-first architecture guards passed')

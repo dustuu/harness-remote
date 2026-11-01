@@ -75,10 +75,15 @@ test("Session-first workspace keeps machines projects harness filters models and
   // The shared harness select still filters by agent id; a Mahurley logo filters by backend
   // (`backend:<name>`) so the same backend on two machines with different agent ids stays visible.
   assert.match(home, /choices\.set\(item\.record\.agentId/, 'the shared harness select keeps one entry per agent id')
+  assert.match(home, /for \(const \{ machine, snapshot \} of sources\)[\s\S]*snapshot\?\.agents \?\? \[\][\s\S]*count: 0/, 'the harness select includes catalog agents with zero Sessions')
+  assert.match(home, /machineFilter && machine\.id !== machineFilter/, 'the harness catalog follows the selected machine')
   assert.match(home, /matchesAgentFilter\(agentFilter, item\.record\.agentId, item\.record\.backend\)/, 'Session filtering accepts an agent id or a backend filter')
   assert.match(home, /matchesAgentFilter\(agentFilter, entry\.agent\.id, entry\.agent\.backend\)/, 'older-page targets follow the same filter')
   assert.match(home, /setAgentFilter\(selected \? "" : backendFilterValue\(agent\.backend\)\)/, 'a logo filters by backend across machines')
   assert.match(home, /!isBackendFilter\(agentFilter\) && !agentChoices\.some/, 'a backend filter is not reset by a machine-only scope change')
+  assert.match(home, /nativeCreateAgents\(snapshot: MachineSnapshot\): MachineAgentHost\[\] \{[\s\S]*agent\.transport === "acp" \|\| agent\.transport === "http"/, 'New Session retains supported installed harnesses for visibility')
+  assert.match(home, /disabled=\{creating \|\| !canCreateNativeSession\(agent\)\}/, 'unavailable New Session harness controls are disabled')
+  assert.match(home, /agent\.state === "unavailable" \? ` · \$\{t\("detail\.unavailable"\)\}`/, 'unavailable harnesses use the existing localized status label')
   assert.match(home, /createNativeSessionTarget/)
   assert.match(home, /New Session|sf\.newSession/)
   assert.match(observer, /NATIVE_SESSION_MODEL_SCOPE/)

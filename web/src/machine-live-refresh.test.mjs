@@ -23,6 +23,13 @@ test("full stream coverage demotes the timer to a safety net", () => {
   )
 })
 
+test("a broken adapter keeps the machine snapshot current", () => {
+  assert.equal(
+    machinePollIntervalMs({ reconnecting: false, machineCount: 1, connectedStreamCount: 1, unsettledAgents: true }),
+    MACHINE_NORMAL_POLL_MS
+  )
+})
+
 test("a machine without a stream keeps the whole poll at the normal cadence", () => {
   assert.equal(
     machinePollIntervalMs({ reconnecting: false, machineCount: 2, connectedStreamCount: 1 }),

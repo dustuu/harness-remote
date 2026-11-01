@@ -1126,7 +1126,9 @@ function NativeSessionsWorkspace({
     const interval = machinePollIntervalMs({
       reconnecting: reconnectingCount > 0 || (hasReachableMachine && reconnectingStreamCount > 0),
       machineCount: streamTargets.length,
-      connectedStreamCount: streamTargets.filter(({ id }) => liveMachines[id]).length
+      connectedStreamCount: streamTargets.filter(({ id }) => liveMachines[id]).length,
+      unsettledAgents: runtimes.some((runtime) => runtime.state === "online"
+        && runtime.snapshot?.agents.some((agent) => agent.state === "unavailable"))
     })
     const timer = window.setInterval(() => {
       if (document.visibilityState === "visible") setRevision((value) => value + 1)
@@ -1145,7 +1147,7 @@ function NativeSessionsWorkspace({
       window.clearInterval(timer)
       document.removeEventListener("visibilitychange", onVisibility)
     }
-  }, [loaded, reconnectingCount, reconnectingStreamCount, hasReachableMachine, streamTargets, liveMachines])
+  }, [loaded, reconnectingCount, reconnectingStreamCount, hasReachableMachine, streamTargets, liveMachines, runtimes])
 
   const onlineCount = runtimes.filter((runtime) => runtime.state === "online").length
   const offlineCount = runtimes.filter((runtime) => runtime.state === "offline").length

@@ -485,7 +485,9 @@ export function sessionTreeRows(sessions: RecordWithMachine[]): Array<{ item: Re
 }
 
 function nativeCreateAgents(snapshot: MachineSnapshot): MachineAgentHost[] {
-  return snapshot.agents.filter(canCreateNativeSession)
+  // Keep installed but unavailable harnesses visible in New Session; the controls below disable
+  // them while `canCreateNativeSession` remains the gate for selecting/creating a Session.
+  return snapshot.agents.filter((agent) => agent.transport === "acp" || agent.transport === "http")
 }
 
 export function NativeSessionHome({
@@ -928,6 +930,16 @@ export function NativeSessionHome({
 
   const agentChoices = useMemo(() => {
     const choices = new Map<string, { id: string; label: string; count: number }>()
+    // The machine snapshot is the harness catalog, while records are the source of counts. Build
+    // the catalog first so installed agents with no Sessions still appear with a zero count.
+    for (const { machine, snapshot } of sources) {
+      if (machineFilter && machine.id !== machineFilter) continue
+      for (const agent of snapshot?.agents ?? []) {
+        const existing = choices.get(agent.id)
+        if (existing) continue
+        choices.set(agent.id, { id: agent.id, label: agent.label || agent.id, count: 0 })
+      }
+    }
     for (const item of machineScopedRecords) {
       const existing = choices.get(item.record.agentId)
       if (existing) existing.count += 1
@@ -938,7 +950,7 @@ export function NativeSessionHome({
       })
     }
     return [...choices.values()].sort((left, right) => left.label.localeCompare(right.label))
-  }, [machineScopedRecords])
+  }, [machineFilter, machineScopedRecords, sources])
 
   useEffect(() => {
     if (agentFilter && !isBackendFilter(agentFilter) && !agentChoices.some((choice) => choice.id === agentFilter)) setAgentFilter("")
@@ -1258,7 +1270,8 @@ export function NativeSessionHome({
   }, [createAgentID, createOpen, compactSkin])
   const selectedCreateProject = createProjects.find((choice) => choice.key === createProjectKey) || createProjects[0]
   const createAgents = selectedCreateMachine ? nativeCreateAgents(selectedCreateMachine.snapshot) : []
-  const selectedCreateAgent = createAgents.find((agent) => agent.id === createAgentID) || createAgents[0]
+  const selectableCreateAgents = createAgents.filter(canCreateNativeSession)
+  const selectedCreateAgent = selectableCreateAgents.find((agent) => agent.id === createAgentID) || selectableCreateAgents[0]
 
   useEffect(() => {
     if (!createOpen) return
@@ -1274,7 +1287,7 @@ export function NativeSessionHome({
 
   useEffect(() => {
     if (!createOpen) return
-    const available = selectedCreateMachine ? nativeCreateAgents(selectedCreateMachine.snapshot) : []
+    const available = selectedCreateMachine ? nativeCreateAgents(selectedCreateMachine.snapshot).filter(canCreateNativeSession) : []
     if (!available.some((agent) => agent.id === createAgentID)) setCreateAgentID(available[0]?.id || "")
   }, [createAgentID, createOpen, selectedCreateMachine])
 
@@ -1594,11 +1607,11 @@ export function NativeSessionHome({
                         key={agent.id}
                         className={selected ? "selected" : undefined}
                         style={{ animationDelay: `${index * 0.35}s` }}
-                        disabled={creating}
+                        disabled={creating || !canCreateNativeSession(agent)}
                         onClick={() => { setCreateAgentID(agent.id); setCreateError(null) }}
                       >
                         <i>{harnessIconUrl(agent.backend) ? <img src={harnessIconUrl(agent.backend)} alt="" /> : <b>{(agent.label || agent.id).slice(0, 2).toUpperCase()}</b>}</i>
-                        <small>{agent.label || agent.id}</small>
+                        <small>{agent.label || agent.id}{agent.state === "unavailable" ? ` · ${t("detail.unavailable")}` : ""}</small>
                       </button>
                     )
                   })}
@@ -1607,8 +1620,8 @@ export function NativeSessionHome({
             ) : (
               <label>
                 <span>{t("sf.codingAgent")}</span>
-                <select value={selectedCreateAgent?.id || ""} onChange={(event) => { setCreateAgentID(event.target.value); setCreateError(null) }} disabled={creating || createAgents.length === 0}>
-                  {createAgents.map((agent) => <option value={agent.id} key={agent.id}>{agent.label || agent.id}</option>)}
+                <select value={selectedCreateAgent?.id || ""} onChange={(event) => { setCreateAgentID(event.target.value); setCreateError(null) }} disabled={creating || selectableCreateAgents.length === 0}>
+                  {createAgents.map((agent) => <option value={agent.id} key={agent.id} disabled={!canCreateNativeSession(agent)}>{agent.label || agent.id}{agent.state === "unavailable" ? ` · ${t("detail.unavailable")}` : ""}</option>)}
                 </select>
               </label>
             )}
@@ -1618,7 +1631,7 @@ export function NativeSessionHome({
             </label>
             {createMachines.length === 0 ? <div className="hr-native-create-error">{t("sf.machinesUnavailable")}</div> : null}
             {selectedCreateMachine && createProjects.length === 0 ? <div className="hr-native-create-error">{t("sf.noProjectAvailable")}</div> : null}
-            {selectedCreateMachine && createAgents.length === 0 ? <div className="hr-native-create-error">{t("sf.noAgentCanCreate")}</div> : null}
+            {selectedCreateMachine && selectableCreateAgents.length === 0 ? <div className="hr-native-create-error">{t("sf.noAgentCanCreate")}</div> : null}
             {createError ? <div className="hr-native-create-error" role="alert">{createError}</div> : null}
             <div className="hr-native-create-actions">
               <button type="button" className="tdw-button secondary" onClick={() => setCreateOpen(false)} disabled={creating}>{t("sf.cancel")}</button>

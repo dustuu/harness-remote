@@ -28,13 +28,21 @@ export function isStreamReconnecting(status: string | { type: string } | undefin
 export function machinePollIntervalMs({
   reconnecting,
   machineCount,
-  connectedStreamCount
+  connectedStreamCount,
+  unsettledAgents = false
 }: {
   reconnecting: boolean
   machineCount: number
   connectedStreamCount: number
+  unsettledAgents?: boolean
 }): number {
   if (reconnecting) return MACHINE_RECONNECT_POLL_MS
+  // An ACP adapter only reports `available` after it has been started, and a failed start reports
+  // `unavailable`. Neither transition reaches the live event stream (which carries Session events),
+  // so a broken harness would stay disabled in the UI until the safety net fired. Pay for the
+  // normal cadence only while something is actually reported broken: `configured` is the ordinary
+  // idle state of an adapter that has not been started yet, not a fault to keep watching.
+  if (unsettledAgents) return MACHINE_NORMAL_POLL_MS
   // Partial coverage still needs the normal cadence: the machines without a stream are exactly the
   // ones whose state changes would otherwise go unnoticed.
   if (machineCount > 0 && connectedStreamCount >= machineCount) return MACHINE_STREAM_POLL_MS
