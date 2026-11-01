@@ -389,6 +389,70 @@ test("machine handoff only creates target Sessions inside the roots or managed T
   }
 })
 
+test("machine handoff continues a Session that lives outside the roots in its own Project", async () => {
+  const daemon = new MachineDaemon({ id: "machine_test", name: "workstation" })
+  const codex = new FakeAcp()
+  const pi = new FakeAcp()
+  daemon.registerAcpHost({ id: "codex", agent: codex })
+  daemon.registerAcpHost({ id: "pi", agent: pi, bridgeConfig: { backend: "pi" } })
+  const base = await mkdtemp(path.join(tmpdir(), "harness-handoff-source-"))
+  const root = path.join(base, "root")
+  const outside = path.join(base, "outside")
+  const otherOutside = path.join(base, "other-outside")
+  const stateDirectory = path.join(base, "state")
+  await Promise.all([mkdir(root), mkdir(outside), mkdir(otherOutside)])
+  const created = []
+  // The source harness is the only authority on where its own Session lives.
+  const codexSessions = [{ id: "source-native-1", directory: outside }]
+  let claimOptions
+  createMachineDaemonServer({
+    daemon,
+    config: { backend: "codex", port: 4097, roots: [root], stateDirectory },
+    primaryAcp: codex,
+    sessionOperationLedger: { marker: "ledger" },
+    sessionLinkStore: { async addHandoff() {} },
+    createServer: (options) => ({
+      acpService: options.config.backend === "pi"
+        ? {
+            async listSessions() { return [] },
+            async createSession(input) { created.push(input.directory); return { id: `pi-${created.length}`, directory: input.directory } },
+            async claimSession() { return true },
+            async prompt() {},
+            async abort() {}
+          }
+        : {
+            async listSessions() { return codexSessions },
+            async claimSession() { return true },
+            async prompt() {},
+            async abort() {}
+          },
+      emit() {}
+    }),
+    createRouter: () => ({ marker: "router" }),
+    createClaimServer: (options) => { claimOptions = options; return { marker: "claim" } },
+    createLaunchServer: ({ innerServer }) => innerServer,
+    createModelServer: ({ innerServer }) => innerServer,
+    createFinishServer: ({ innerServer }) => innerServer,
+    createWorkThreadServerFactory: ({ innerServer }) => innerServer
+  })
+  const handoff = (sourceSessionID, directory) => claimOptions.handoffSession("codex", sourceSessionID, { targetAgentID: "pi", directory })
+
+  try {
+    // A Session listed there by its own harness is continued in that Project, root boundary or not.
+    const result = await handoff("source-native-1", outside)
+    assert.equal(result.target.directory, outside)
+    assert.deepEqual(created, [outside])
+
+    // The Session identity is what authorizes the directory: another id in the same place is not.
+    await assert.rejects(handoff("source-native-2", outside), (error) => error.code === "invalid_request")
+    // Nor does one listing make every other outside directory writable.
+    await assert.rejects(handoff("source-native-1", otherOutside), (error) => error.code === "invalid_request")
+    assert.deepEqual(created, [outside], "a rejected directory must never reach session/new")
+  } finally {
+    await rm(base, { recursive: true, force: true })
+  }
+})
+
 test("machine Session mutations acquire ACP ownership lazily and reuse it", async () => {
   const daemon = new MachineDaemon({ id: "machine_test", name: "workstation" })
   const codex = new FakeAcp()

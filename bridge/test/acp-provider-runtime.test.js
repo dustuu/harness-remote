@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import path from "node:path"
 import test from "node:test"
-import { createAcpProviderRuntime, resolveAcpProviderIDs, resolveAcpProviderLaunch } from "../src/acp-provider-runtime.js"
+import { acpProviderEnvironment, createAcpProviderRuntime, resolveAcpProviderIDs, resolveAcpProviderLaunch } from "../src/acp-provider-runtime.js"
 import { defineAcpProvider } from "../src/acp-provider-kit.js"
 
 function provider(overrides = {}) {
@@ -69,6 +69,25 @@ test("provider launch preserves an explicit primary ACP command and delegates ma
     }
   }), { command: "/tools/managed-acp", args: ["run"], source: "test" })
   assert.equal(resolved, p)
+})
+
+test("npx adapters use the daemon's own cache while native adapters keep their environment", () => {
+  const configured = provider({ environment: { CODEX_PATH: "/tools/codex" } })
+  const config = { stateDirectory: "/state" }
+  assert.deepEqual(acpProviderEnvironment(configured, { command: "npx", args: [] }, config), {
+    CODEX_PATH: "/tools/codex",
+    npm_config_cache: path.join("/state", "npm-cache")
+  })
+  assert.deepEqual(acpProviderEnvironment(configured, { command: "C:\\node\\npx.cmd", args: [] }, config), {
+    CODEX_PATH: "/tools/codex",
+    npm_config_cache: path.join("/state", "npm-cache")
+  })
+  assert.equal(acpProviderEnvironment(provider(), { command: "omp", args: ["acp"] }, config), undefined)
+  // An operator can still pin one harness to a specific cache.
+  const pinned = provider({ environment: { npm_config_cache: "/custom/cache" } })
+  assert.deepEqual(acpProviderEnvironment(pinned, { command: "npx", args: [] }, config), {
+    npm_config_cache: "/custom/cache"
+  })
 })
 
 test("provider runtime builds separate user and model ACP clients and a complete daemon registration", async () => {
@@ -176,4 +195,62 @@ test("provider runtime falls back to cwd when no project root is configured", as
   })
 
   assert.equal(runtime.modelCatalog.options.directory, "/fallback")
+})
+
+test("npx ACP clients share one daemon cache but never start an install at the same time", async () => {
+  const clients = []
+  let active = 0
+  let peak = 0
+  class FakeClient {
+    constructor(options) { this.options = options; clients.push(this) }
+    async start() {
+      active += 1
+      peak = Math.max(peak, active)
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      active -= 1
+    }
+  }
+  class FakeCatalog {
+    constructor(options) { this.options = options; this.hiddenSessionIDs = new Set() }
+    async preloadState() {}
+  }
+  const runtime = await createAcpProviderRuntime({
+    provider: provider({ environment: { CODEX_PATH: "/tools/codex" } }),
+    launch: { command: "npx", args: ["--yes", "example-acp"] },
+    config: { roots: [], stateDirectory: "/state" },
+    Client: FakeClient,
+    ModelCatalog: FakeCatalog
+  })
+  assert.equal(clients.length, 2)
+  assert.equal(clients[0].options.environment.CODEX_PATH, "/tools/codex")
+  assert.equal(clients[1].options.environment.CODEX_PATH, "/tools/codex")
+  assert.equal(clients[0].options.environment.npm_config_cache, "/state/npm-cache")
+  assert.equal(clients[1].options.environment.npm_config_cache, "/state/npm-cache")
+  assert.equal(runtime.modelCatalog.options.environment.npm_config_cache, "/state/npm-cache")
+
+  // The user-facing and catalog clients start in parallel on first use; two installs must not.
+  await Promise.all([runtime.agent.start(), runtime.modelCatalog.options.agent.start()])
+  assert.equal(peak, 1, "npx launches must be serialized")
+  assert.equal(active, 0)
+})
+
+test("native ACP adapters start without waiting behind an npx install", async () => {
+  const starts = []
+  class FakeClient {
+    constructor(options) { this.options = options }
+    async start() { starts.push(this.options.command) }
+  }
+  class FakeCatalog {
+    constructor(options) { this.options = options; this.hiddenSessionIDs = new Set() }
+    async preloadState() {}
+  }
+  const runtime = await createAcpProviderRuntime({
+    provider: provider(),
+    launch: { command: "omp", args: ["acp"] },
+    config: { roots: [], stateDirectory: "/state" },
+    Client: FakeClient,
+    ModelCatalog: FakeCatalog
+  })
+  await Promise.all([runtime.agent.start(), runtime.modelCatalog.options.agent.start()])
+  assert.deepEqual(starts, ["omp", "omp"])
 })
