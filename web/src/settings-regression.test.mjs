@@ -70,7 +70,8 @@ assert.match(workbench, /\.hr-mobile-settings-group label input\[type="checkbox"
 
 // One machine discovers coding agents and native Sessions. New work is created as a real native Session.
 assert.match(machineClient, /export async function discoverMachine/)
-assert.match(home, /snapshot\.agents\.filter\(canCreateNativeSession\)/)
+assert.match(home, /nativeCreateAgents\(snapshot: MachineSnapshot\)[\s\S]*agent\.transport === "acp" \|\| agent\.transport === "http"/, 'New Session lists every installed harness')
+assert.match(home, /selectableCreateAgents = createAgents\.filter\(canCreateNativeSession\)/, 'only writable harnesses are selectable')
 assert.match(home, /createNativeSessionTarget/)
 assert.doesNotMatch(home, /taskClient\.createTask/)
 assert.match(observer, /const NATIVE_SESSION_MODEL_SCOPE: AgentModelScope = \{\}/)

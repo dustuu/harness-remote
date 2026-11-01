@@ -476,7 +476,10 @@ export function createMachineDaemonServer({
     return sessions
       .map((session) => ({
         id: session?.id || session?.sessionId,
-        directory: session?.directory || session?.cwd || directory
+        // A directory supplied in the query is only a filter, not evidence of where the
+        // harness says this Session lives. Handoff uses the reported directory as authority
+        // when allowing a Project outside --root.
+        directory: session?.directory || session?.cwd
       }))
       .filter((session) => session.id && (!directory || session.directory === directory))
   }
@@ -517,13 +520,25 @@ export function createMachineDaemonServer({
     return handoffResultForTarget(sourceAgentID, sourceSessionID, input.targetAgentID, input.directory, candidates[0].id)
   }
 
-  const assertHandoffDirectory = async (directory) => {
+  /**
+   * The `--root` boundary keeps the daemon from creating a Session in a caller-invented directory.
+   * A handoff does not invent one: it continues an existing Session in the Project that Session
+   * already lives in. When the source harness itself lists the source Session in that directory, the
+   * directory is as trustworthy as the Session, so a Session outside the configured roots can still
+   * be continued on another harness. Without this, the rail offers a Session that can be prompted
+   * but fails the moment the user continues it - with an error about a boundary they never set.
+   */
+  const assertHandoffDirectory = async (sourceAgentID, sourceSessionID, directory) => {
     const resolved = await realpath(directory).catch(() => undefined)
     if (resolved) {
       for (const root of [...roots, path.join(stateDirectory, "worktrees")]) {
         const resolvedRoot = await realpath(root).catch(() => undefined)
         if (resolvedRoot && insideRoot(resolvedRoot, resolved)) return
       }
+      // Only the source harness can prove the caller's directory belongs to this Session. A failed
+      // listing proves nothing, so it keeps the boundary error below.
+      const sourceSessions = await listHandoffSessions(sourceAgentID, directory).catch(() => [])
+      if (sourceSessions.some((session) => session.id === sourceSessionID)) return
     }
     throw daemonError("invalid_request", "Native Session handoff directory is outside the configured --root boundary")
   }
@@ -534,12 +549,12 @@ export function createMachineDaemonServer({
     { targetAgentID, directory, model, variant, title },
     { checkpoint } = {}
   ) => {
-    // Handoff creates a new agent Session with this cwd, so it gets the same --root boundary as
-    // POST /session, plus this daemon's managed Task worktrees. The caller's string stays the
-    // Session identity; only its resolved form is checked.
-    await assertHandoffDirectory(directory)
     const sourceEntry = daemon.hostEntry(sourceAgentID)
     if (!sourceEntry) throw daemonError("unknown_agent", `Unknown source agent: ${sourceAgentID}`)
+    // Handoff creates a new agent Session with this cwd, so it gets the same --root boundary as
+    // POST /session, plus this daemon's managed Task worktrees and the source Session's own
+    // Project. The caller's string stays the Session identity; only its resolved form is checked.
+    await assertHandoffDirectory(sourceAgentID, sourceSessionID, directory)
     const targetEntry = daemon.hostEntry(targetAgentID)
     if (!targetEntry) throw daemonError("unknown_agent", `Unknown target agent: ${targetAgentID}`)
     if (targetEntry.host?.capabilities?.sessions === false || daemon.registry.host(targetAgentID)?.capabilities?.sessions === false) {

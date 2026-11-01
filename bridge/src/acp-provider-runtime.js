@@ -53,6 +53,44 @@ export function resolveAcpProviderLaunch(provider, { primary = false, config, re
   return resolveLaunch(provider)
 }
 
+const NPX_COMMAND = /(?:^|[\\/])npx(?:\.cmd)?$/i
+
+/**
+ * Install logs on this project's machines showed npx leaving `_npx` entries without a
+ * `package.json`, which makes every later launch fail with "Could not read package.json". Two npx
+ * runs racing on one cache produced exactly that, and a broken entry is reused forever afterwards.
+ *
+ * Adapters therefore install into the daemon's own cache instead of the user's global one, and the
+ * launches are serialized so no two installs ever share that cache at the same time. Serializing is
+ * what makes one cache enough: the previous per-harness, per-client caches cost a full adapter
+ * install each (gigabytes on a machine with several npx adapters).
+ */
+let npxInstallTail = Promise.resolve()
+function serializeNpxLaunch(run) {
+  const started = npxInstallTail.then(run, run)
+  npxInstallTail = started.then(() => undefined, () => undefined)
+  return started
+}
+
+function serializeNpxStart(client) {
+  const start = client?.start
+  if (typeof start !== "function") return client
+  client.start = (...args) => serializeNpxLaunch(() => start.apply(client, args))
+  return client
+}
+
+/** Environment for an ACP adapter launched through npx; native adapters keep their own. */
+export function acpProviderEnvironment(provider, launch, config) {
+  if (!NPX_COMMAND.test(launch.command)) return provider.environment
+  return {
+    ...provider.environment,
+    // A per-harness override stays authoritative; otherwise one daemon-wide cache serves every
+    // npx adapter, with `serializeNpxStart` keeping installs apart.
+    npm_config_cache: provider.environment?.npm_config_cache
+      ?? path.join(config.stateDirectory, "npm-cache")
+  }
+}
+
 /**
  * Build one ACP provider runtime registration.
  *
@@ -67,18 +105,20 @@ export async function createAcpProviderRuntime({
   ModelCatalog = AcpAgentModelCatalog,
   cwd = process.cwd()
 }) {
+  const environment = acpProviderEnvironment(provider, launch, config)
+  const serialized = NPX_COMMAND.test(launch.command) ? serializeNpxStart : (client) => client
   const clientOptions = {
     command: launch.command,
     args: [...launch.args],
     permissionMode: provider.permissionMode,
     preferredAuthMethod: provider.authMethod,
     authenticate: provider.authenticate,
-    ...(provider.environment ? { environment: provider.environment } : {})
+    ...(environment ? { environment } : {})
   }
   const roots = (config.roots?.length ? config.roots : [cwd]).map((root) => path.resolve(root))
   const createRuntimeClient = (maxClients = 2) => provider.sessionListScope === "project"
-    ? new ProjectScopedAcpClient({ roots, maxClients, createClient: (directory) => new Client({ ...clientOptions, cwd: directory }) })
-    : new Client(clientOptions)
+    ? new ProjectScopedAcpClient({ roots, maxClients, createClient: (directory) => serialized(new Client({ ...clientOptions, cwd: directory })) })
+    : serialized(new Client(clientOptions))
   const agent = createRuntimeClient()
   const modelCatalogOptions = {
     agent: createRuntimeClient(1),
@@ -90,10 +130,10 @@ export async function createAcpProviderRuntime({
     inlineModelVariantValues: provider.inlineModelVariantValues,
     modelProviderOrder: provider.modelProviderOrder,
     command: launch.command,
-    environment: provider.environment,
+    environment,
     releaseAfterRefresh: provider.sessionListScope === "project",
     ...(provider.catalogSessionCleanup ? {
-      cleanupSession: (session) => cleanupCatalogSession(provider.catalogSessionCleanup, session, provider.sessionListScope === "project", provider.environment)
+      cleanupSession: (session) => cleanupCatalogSession(provider.catalogSessionCleanup, session, provider.sessionListScope === "project", environment)
     } : {})
   }
   const modelCatalog = provider.createModelCatalog
