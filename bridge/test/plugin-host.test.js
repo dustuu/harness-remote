@@ -441,3 +441,49 @@ process.stdout.write(JSON.stringify({ ok: true, result: request.method === "stat
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test("plugin processes do not inherit the gateway credentials", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "harness-plugin-credentials-"))
+  const builtin = path.join(root, "builtin")
+  const pluginDirectory = path.join(builtin, "probe")
+  const calls = path.join(root, "calls.log")
+  await mkdir(pluginDirectory, { recursive: true })
+  await writeFile(path.join(pluginDirectory, "harness-plugin.json"), JSON.stringify({
+    schemaVersion: 1,
+    id: "probe",
+    name: "Probe",
+    version: "1.0.0",
+    runtime: { kind: "node", entry: "plugin.cjs" }
+  }))
+  await writeFile(path.join(pluginDirectory, "plugin.cjs"), `
+const fs = require("node:fs")
+const gatewayCredentialNames = new Set([
+  "HARNESS_REMOTE_USERNAME",
+  "HARNESS_REMOTE_PASSWORD",
+  "OMP_BRIDGE_USERNAME",
+  "OMP_BRIDGE_PASSWORD"
+].map((name) => name.toLowerCase()))
+const inheritedGatewayCredentials = Object.keys(process.env).filter((name) => gatewayCredentialNames.has(name.toLowerCase()))
+fs.appendFileSync(${JSON.stringify(calls)}, JSON.stringify(inheritedGatewayCredentials) + "\\n")
+process.stdout.write(JSON.stringify({ ok: true, result: { ready: true } }))
+`)
+  const host = new PluginHost({
+    stateDirectory: path.join(root, "state"),
+    builtinDirectory: builtin,
+    home: root,
+    environment: {
+      PATH: process.env.PATH,
+      HARNESS_REMOTE_USERNAME: "sentinel-harness-user",
+      HARNESS_REMOTE_PASSWORD: "sentinel-harness-password",
+      OMP_BRIDGE_USERNAME: "sentinel-omp-user",
+      OMP_BRIDGE_PASSWORD: "sentinel-omp-password"
+    }
+  })
+  try {
+    await host.list()
+    assert.equal(await readFile(calls, "utf8"), "[]\n")
+  } finally {
+    await host.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
