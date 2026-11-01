@@ -4,6 +4,7 @@ import { mkdir, readFile, readdir, stat } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { withoutGatewayCredentials } from "../child-environment.js"
 import { JsonFileStore } from "../json-file-store.js"
 
 /**
@@ -127,7 +128,7 @@ export function findOnPath(name, { environment = process.env, home = os.homedir(
 
 function networkEnvironment(environment) {
   return {
-    ...environment,
+    ...withoutGatewayCredentials(environment),
     NO_COLOR: "1",
     FORCE_COLOR: "0",
     CI: environment.CI ?? "1"

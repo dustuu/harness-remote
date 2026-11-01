@@ -441,3 +441,36 @@ process.stdout.write(JSON.stringify({ ok: true, result: request.method === "stat
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test("plugin processes do not inherit the gateway credentials", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "harness-plugin-credentials-"))
+  const builtin = path.join(root, "builtin")
+  const pluginDirectory = path.join(builtin, "probe")
+  const calls = path.join(root, "calls.log")
+  await mkdir(pluginDirectory, { recursive: true })
+  await writeFile(path.join(pluginDirectory, "harness-plugin.json"), JSON.stringify({
+    schemaVersion: 1,
+    id: "probe",
+    name: "Probe",
+    version: "1.0.0",
+    runtime: { kind: "node", entry: "plugin.cjs" }
+  }))
+  await writeFile(path.join(pluginDirectory, "plugin.cjs"), `
+const fs = require("node:fs")
+fs.appendFileSync(${JSON.stringify(calls)}, Object.keys(process.env).filter((name) => /PASSWORD|USERNAME/i.test(name)).join() + "\\n")
+process.stdout.write(JSON.stringify({ ok: true, result: { ready: true } }))
+`)
+  const host = new PluginHost({
+    stateDirectory: path.join(root, "state"),
+    builtinDirectory: builtin,
+    home: root,
+    environment: { PATH: process.env.PATH, HARNESS_REMOTE_USERNAME: "user", HARNESS_REMOTE_PASSWORD: "secret" }
+  })
+  try {
+    await host.list()
+    assert.equal(await readFile(calls, "utf8"), "\n")
+  } finally {
+    await host.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
