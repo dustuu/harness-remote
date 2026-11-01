@@ -39,10 +39,11 @@
 }
 
 /* Open, the header rides along at the top of the transcript: a long section would otherwise put its
-   only collapse control a screen or more above the reader. Opaque, so rows do not show through. */
+   only collapse control a screen or more above the reader. Opaque, so rows do not show through.
+   Sticky stops at the padding edge, so it rises by the top padding the transcript publishes. */
 .hr-activity.is-open > .hr-activity-frame > .hr-activity-head {
   position: sticky;
-  top: 0;
+  top: calc(-1 * var(--hr-transcript-pad-top, 0px));
   z-index: 3;
   border-bottom: 1px solid var(--td3-border-soft);
   border-radius: 11px 11px 0 0;
