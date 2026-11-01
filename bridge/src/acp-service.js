@@ -2181,8 +2181,8 @@ export class AcpService {
       }
     }
     if (this.#queues.get(sessionID)?.[0] !== next) return this.#resumeQueue(sessionID)
-    dequeue()
     this.#setPromptQueued(sessionID, next.messageID, false)
+    dequeue()
     this.#startTurn(sessionID, next.text, true, next.attachments ?? [])
   }
 
